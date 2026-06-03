@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>深海聲納 原型</title>
+<style>
+/* === VARIABLES === */
+:root{
+  --z-d1-bg:linear-gradient(160deg,#0A4D7A 0%,#1A8DB5 40%,#2FB8E0 70%,#7DD8F0 100%);
+  --z-d3-bg:linear-gradient(160deg,#001528 0%,#023E8A 40%,#0077B6 75%,#00A8CC 100%);
+  --z-d5-bg:linear-gradient(160deg,#080010 0%,#150022 40%,#280048 75%,#3A006A 100%);
+  --z-d7-bg:linear-gradient(160deg,#130300 0%,#3A1000 40%,#722E00 75%,#B85200 100%);
+  --panel-bg:rgba(0,0,0,0.68);
+  --panel-border:rgba(255,255,255,0.12);
+  --gold:#FFD700;--gold2:#FFA520;
+}
+
+/* === LAYOUT === */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{
+  background:#111;display:flex;align-items:center;justify-content:center;
+  min-height:100vh;font-family:'PingFang TC','Microsoft JhengHei',sans-serif;
+  overflow:hidden;user-select:none;
+}
+
+/* App container — landscape 16:9 */
+#app{
+  width:844px;height:390px;
+  position:relative;overflow:hidden;
+  border-radius:28px;
+  box-shadow:0 0 80px rgba(0,0,0,0.9),0 0 0 1px rgba(255,255,255,0.06);
+  max-width:100vw;max-height:100vh;
+}
+@media(max-width:860px){
+  #app{width:100vw;height:calc(100vw * 390/844);border-radius:0}
+}
+@media(max-height:390px){
+  #app{height:100vh;width:calc(100vh * 844/390);border-radius:0}
+}
+
+/* === BACKGROUND === */
+#ocean-bg{position:absolute;inset:0;z-index:0;transition:background 1.2s ease}
+#caustic-layer{
+  position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0.12;
+  background-image:
+    radial-gradient(ellipse 60px 100px at 25% 30%,rgba(255,255,255,0.8) 0%,transparent 100%),
+    radial-gradient(ellipse 90px 50px at 65% 20%,rgba(255,255,255,0.6) 0%,transparent 100%),
+    radial-gradient(ellipse 45px 85px at 80% 60%,rgba(255,255,255,0.7) 0%,transparent 100%);
+  animation:caustic 8s ease-in-out infinite;
+}
+@keyframes caustic{
+  0%,100%{transform:translate(0,0) scale(1)}
+  40%{transform:translate(5px,-4px) scale(1.02)}
+  70%{transform:translate(-4px,6px) scale(0.98)}
+}
+#deco-layer,#bubble-layer{position:absolute;inset:0;z-index:2;pointer-events:none}
+
+/* === UI LAYER — three-column landscape grid === */
+#ui-layer{
+  position:absolute;inset:0;z-index:10;
+  display:grid;
+  grid-template-rows:44px 1fr;
+  grid-template-columns:1fr;
+}
+
+/* === TOP BAR === */
+#topbar{
+  grid-row:1;grid-column:1;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;
+  background:linear-gradient(180deg,rgba(0,0,0,0.8) 0%,rgba(0,0,0,0.45) 100%);
+  border-bottom:1px solid rgba(255,255,255,0.07);
+  gap:12px;
+}
+#title{font-size:17px;font-weight:900;letter-spacing:3px;color:#fff;white-space:nowrap;text-shadow:0 2px 10px rgba(0,0,0,0.9)}
+#vip-badge{
+  font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;white-space:nowrap;
+  background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.5);color:var(--gold);
+}
+#zone-badge{
+  font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;white-space:nowrap;
+  background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);
+  color:rgba(255,255,255,0.8);letter-spacing:1px;
+}
+#countdown-wrap{display:flex;flex-direction:column;align-items:flex-end}
+#countdown-label{font-size:9px;color:rgba(255,255,255,0.35)}
+#countdown{font-size:14px;font-family:monospace;color:#AACCFF;font-weight:700;letter-spacing:1px}
+
+/* === MAIN ROW (below topbar) === */
+#main-row{
+  grid-row:2;grid-column:1;
+  display:grid;
+  grid-template-columns:240px 1fr 210px;
+  min-height:0;
+}
+
+/* === LEFT PANEL — purchase controls === */
+#left-panel{
+  display:flex;flex-direction:column;justify-content:center;
+  padding:12px 14px;
+  background:var(--panel-bg);
+  border-right:1px solid var(--panel-border);
+  gap:8px;
+}
+#promo-text{
+  font-size:11px;font-weight:700;color:#FFEEBB;
+  text-align:center;line-height:1.4;min-height:28px;
+  text-shadow:0 1px 6px rgba(0,0,0,0.8);
+}
+.amount-row{display:flex;gap:6px;justify-content:center}
+.amt-btn{
+  padding:6px 12px;border-radius:18px;
+  border:2px solid rgba(255,255,255,0.22);
+  background:rgba(255,255,255,0.07);
+  color:rgba(255,255,255,0.75);font-size:13px;font-weight:700;
+  cursor:pointer;transition:all 0.18s;
+}
+.amt-btn.sel{
+  border-color:var(--gold);background:rgba(255,215,0,0.18);
+  color:var(--gold);box-shadow:0 0 10px rgba(255,215,0,0.3);
+}
+#buy-btn{
+  width:100%;padding:11px;border-radius:24px;border:none;
+  cursor:pointer;font-size:14px;font-weight:900;letter-spacing:0.5px;
+  transition:all 0.2s;position:relative;overflow:hidden;
+}
+#buy-btn.avail{
+  background:linear-gradient(135deg,#E07A00 0%,#FFD700 45%,#E07A00 100%);
+  background-size:200% 100%;
+  color:#1A0500;box-shadow:0 4px 18px rgba(255,160,0,0.5);
+  animation:shimmer-move 3s linear infinite;
+}
+#buy-btn.purchased{
+  background:rgba(80,80,80,0.45);color:#666;cursor:not-allowed;font-size:12px;
+}
+@keyframes shimmer-move{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* === CENTER — ocean scene with sonar === */
+#center-scene{
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+#scanning-label{
+  position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+  font-size:11px;color:rgba(100,220,255,0.85);letter-spacing:3px;
+  animation:scan-blink 1.4s ease-in-out infinite;display:none;white-space:nowrap;
+}
+@keyframes scan-blink{0%,100%{opacity:0.35}50%{opacity:1}}
+
+/* === SONAR BUTTON === */
+#sonar-btn{
+  width:100px;height:100px;border-radius:50%;border:none;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:3px;
+  font-size:10px;font-weight:800;color:#fff;letter-spacing:1px;
+  transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1);z-index:20;
+  -webkit-appearance:none;position:relative;
+}
+#sonar-btn.disabled{
+  background:radial-gradient(circle,#444 0%,#2A2A2A 100%);
+  box-shadow:0 4px 20px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.08);
+  color:#666;cursor:not-allowed;
+}
+#sonar-btn.active{
+  background:radial-gradient(circle,#7AE8FF 0%,#22C0F0 40%,#007ACC 100%);
+  box-shadow:0 0 0 8px rgba(0,180,255,0.18),0 0 30px rgba(0,180,255,0.8),0 0 60px rgba(0,150,255,0.4);
+  animation:sonar-idle 2.2s ease-in-out infinite;
+}
+#sonar-btn.active.gold-zone{
+  background:radial-gradient(circle,#FFF176 0%,#FFD700 40%,#E67E00 100%);
+  box-shadow:0 0 0 8px rgba(255,200,0,0.18),0 0 30px rgba(255,200,0,0.8),0 0 60px rgba(255,150,0,0.4);
+  animation:sonar-idle-gold 2.2s ease-in-out infinite;
+}
+#sonar-icon{font-size:32px;line-height:1;display:block}
+#sonar-lbl{font-size:10px;letter-spacing:1px;color:inherit}
+
+@keyframes sonar-idle{
+  0%,100%{box-shadow:0 0 0 8px rgba(0,180,255,0.18),0 0 30px rgba(0,180,255,0.8),0 0 60px rgba(0,150,255,0.4)}
+  50%{box-shadow:0 0 0 16px rgba(0,200,255,0.12),0 0 50px rgba(0,200,255,1),0 0 90px rgba(0,180,255,0.6)}
+}
+@keyframes sonar-idle-gold{
+  0%,100%{box-shadow:0 0 0 8px rgba(255,200,0,0.18),0 0 30px rgba(255,200,0,0.8),0 0 60px rgba(255,150,0,0.4)}
+  50%{box-shadow:0 0 0 16px rgba(255,200,0,0.12),0 0 50px rgba(255,220,0,1),0 0 90px rgba(255,180,0,0.6)}
+}
+
+/* === RIGHT PANEL — progress bar === */
+#right-panel{
+  display:flex;flex-direction:column;justify-content:center;
+  padding:10px 12px;
+  background:var(--panel-bg);
+  border-left:1px solid var(--panel-border);
+  gap:6px;
+}
+#days-row{display:flex;flex-direction:column;gap:4px}
+.day-cell{
+  display:flex;align-items:center;gap:7px;
+  padding:3px 6px;border-radius:10px;
+  transition:background 0.3s;
+  cursor:default;
+}
+.day-cell.done{background:rgba(0,160,80,0.15)}
+.day-cell.cur{background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.35)}
+.day-cell.future{opacity:0.45}
+.day-circle{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;border:2px solid rgba(255,255,255,0.2);
+  background:rgba(0,0,0,0.35);position:relative;
+  transition:all 0.4s;
+}
+.day-cell.done .day-circle{background:rgba(0,160,80,0.25);border-color:#0B0}
+.day-cell.cur .day-circle{
+  border-color:var(--gold);
+  animation:cur-pulse 1.8s ease-in-out infinite;
+}
+.day-meta{flex:1;min-width:0}
+.day-lbl{font-size:11px;color:rgba(255,255,255,0.75);font-weight:800;line-height:1}
+.day-pct{font-size:10px;color:var(--gold);font-weight:700;margin-top:1px}
+.gift-pip{
+  position:absolute;top:-3px;right:-3px;
+  font-size:11px;line-height:1;filter:drop-shadow(0 0 3px gold);
+}
+#progress-hint{text-align:center;font-size:9px;color:rgba(255,255,255,0.28);margin-top:2px}
+
+@keyframes cur-pulse{
+  0%,100%{box-shadow:0 0 0 2px rgba(255,215,0,0.2),0 0 10px rgba(255,215,0,0.4)}
+  50%{box-shadow:0 0 0 5px rgba(255,215,0,0.1),0 0 18px rgba(255,215,0,0.7)}
+}
+
+/* === OVERLAYS === */
+/* Sonar rings */
+#sonar-overlay{position:absolute;inset:0;z-index:50;pointer-events:none;display:none}
+.sonar-ring{
+  position:absolute;left:50%;top:50%;
+  width:100px;height:100px;border-radius:50%;
+  border:3px solid rgba(56,217,255,0.75);
+  animation:ring-expand 1.8s ease-out forwards;
+}
+.sonar-ring.gold-ring{border-color:rgba(255,215,0,0.75)}
+.sonar-ring:nth-child(2){animation-delay:0.28s}
+.sonar-ring:nth-child(3){animation-delay:0.56s}
+.sonar-ring:nth-child(4){animation-delay:0.84s}
+@keyframes ring-expand{
+  0%{transform:translate(-50%,-50%) scale(0.4);opacity:0.9}
+  100%{transform:translate(-50%,-50%) scale(4.5);opacity:0}
+}
+
+/* Particle canvas */
+#particle-canvas{position:absolute;inset:0;z-index:55;pointer-events:none;display:none}
+
+/* Result overlay */
+#result-overlay{
+  position:absolute;inset:0;z-index:60;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);
+}
+.result-panel{
+  width:340px;padding:22px 24px;border-radius:22px;text-align:center;
+  animation:pop-in 0.42s cubic-bezier(0.34,1.56,0.64,1);position:relative;
+}
+.result-panel.fomo{
+  background:linear-gradient(145deg,#101F3A,#091528);
+  border:1.5px solid rgba(56,217,255,0.5);
+  box-shadow:0 0 40px rgba(0,150,255,0.3);
+}
+.result-panel.maxwin{
+  background:linear-gradient(145deg,#3A1400,#602000);
+  border:1.5px solid rgba(255,215,0,0.7);
+  box-shadow:0 0 50px rgba(255,180,0,0.5);
+}
+.result-title{font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:4px}
+.result-amount{
+  font-size:36px;font-weight:900;margin:8px 0;
+  animation:num-zoom 0.7s cubic-bezier(0.34,1.56,0.64,1);
+}
+.result-sub{font-size:12px;margin:4px 0 14px;line-height:1.5}
+.result-btn{
+  padding:10px 34px;border-radius:22px;border:none;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  color:#1A0500;font-size:14px;font-weight:900;cursor:pointer;
+  box-shadow:0 4px 14px rgba(255,150,0,0.4);transition:transform 0.15s;
+}
+.result-btn:active{transform:scale(0.96)}
+
+/* Gift box overlay */
+#giftbox-overlay{
+  position:absolute;inset:0;z-index:65;
+  display:none;align-items:center;justify-content:center;gap:24px;
+  background:rgba(0,0,0,0.6);backdrop-filter:blur(3px);
+}
+.giftbox-emoji{
+  font-size:90px;display:block;
+  filter:drop-shadow(0 0 24px gold) drop-shadow(0 4px 12px rgba(0,0,0,0.8));
+  animation:gift-bob 1.8s ease-in-out 0.6s infinite;
+}
+.giftbox-card{
+  background:linear-gradient(145deg,rgba(30,12,0,0.96),rgba(60,25,0,0.96));
+  border:1.5px solid rgba(255,215,0,0.6);border-radius:18px;
+  padding:18px 24px;text-align:center;
+  box-shadow:0 0 30px rgba(255,180,0,0.25);
+  animation:pop-in 0.5s 0.2s both cubic-bezier(0.34,1.56,0.64,1);
+}
+.giftbox-card-title{font-size:13px;color:var(--gold);font-weight:700;margin-bottom:6px}
+.giftbox-reward{font-size:22px;font-weight:900;color:#fff;margin-bottom:14px}
+.giftbox-btn{
+  padding:10px 32px;border-radius:20px;border:none;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  color:#1A0000;font-size:14px;font-weight:900;cursor:pointer;
+}
+@keyframes gift-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
+/* Dialogs */
+.dlg-overlay{
+  position:absolute;inset:0;z-index:80;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);
+}
+.dlg-box{
+  width:320px;background:linear-gradient(145deg,#162438,#0C1620);
+  border:1px solid rgba(255,255,255,0.18);border-radius:22px;
+  padding:24px 22px;text-align:center;
+  animation:pop-in 0.35s cubic-bezier(0.34,1.56,0.64,1);
+}
+.dlg-icon{font-size:38px;margin-bottom:8px}
+.dlg-title{font-size:17px;font-weight:900;color:#fff;margin-bottom:8px}
+.dlg-body{font-size:13px;color:rgba(255,255,255,0.7);line-height:1.65;margin-bottom:18px}
+.dlg-btn{
+  padding:10px 36px;border-radius:22px;border:none;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  color:#1A0500;font-size:14px;font-weight:900;cursor:pointer;
+}
+
+/* === DEBUG PANEL === */
+#debug-panel{
+  position:absolute;right:-215px;top:48px;width:208px;
+  background:rgba(0,0,0,0.93);border:1px solid rgba(255,255,255,0.14);
+  border-radius:14px 0 0 14px;padding:12px;z-index:100;
+  transition:right 0.3s ease;color:#fff;font-size:12px;
+}
+#debug-panel.open{right:0}
+#debug-tab{
+  position:absolute;left:-26px;top:50%;transform:translateY(-50%);
+  width:24px;height:52px;background:rgba(0,0,0,0.85);
+  border:1px solid rgba(255,255,255,0.15);border-right:none;
+  border-radius:8px 0 0 8px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;color:#AAA;
+}
+.dbg-sec{font-size:11px;font-weight:700;color:var(--gold);
+  border-bottom:1px solid rgba(255,215,0,0.25);padding-bottom:3px;margin:8px 0 5px}
+.dbg-row{margin-bottom:8px}
+.dbg-lbl{font-size:10px;color:#888;margin-bottom:3px}
+.dbg-sel{
+  width:100%;background:rgba(255,255,255,0.09);
+  border:1px solid rgba(255,255,255,0.18);border-radius:7px;
+  color:#fff;padding:4px 7px;font-size:11px;
+}
+.dbg-btns{display:flex;gap:4px;flex-wrap:wrap}
+.dbg-btn{
+  padding:4px 7px;border-radius:7px;flex:1;
+  border:1px solid rgba(255,255,255,0.22);
+  background:rgba(255,255,255,0.08);
+  color:#fff;font-size:10px;cursor:pointer;
+  white-space:nowrap;transition:background 0.15s;
+}
+.dbg-btn:active{background:rgba(255,255,255,0.22)}
+.dbg-btn.on{background:rgba(255,215,0,0.2);border-color:var(--gold);color:var(--gold)}
+
+/* === SHARED ANIMATIONS === */
+@keyframes pop-in{0%{transform:scale(0.5);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes num-zoom{0%{transform:scale(0.3);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+@keyframes float-up{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-160px) scale(0.3);opacity:0}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Background -->
+  <div id="ocean-bg"></div>
+  <div id="caustic-layer"></div>
+  <div id="bubble-layer"></div>
+  <div id="deco-layer"></div>
+
+  <!-- UI Layer -->
+  <div id="ui-layer">
+
+    <!-- Top bar -->
+    <div id="topbar">
+      <div id="title">🔊 深海聲納</div>
+      <div id="vip-badge">進階探索員 · +XX%</div>
+      <div id="zone-badge">淺海珊瑚礁</div>
+      <div style="flex:1"></div>
+      <div id="countdown-wrap">
+        <div id="countdown-label">換日倒數</div>
+        <div id="countdown">08:42:15</div>
+      </div>
+    </div>
+
+    <!-- Main three-column row -->
+    <div id="main-row">
+
+      <!-- LEFT: purchase controls -->
+      <div id="left-panel">
+        <div id="promo-text"></div>
+        <div class="amount-row" id="amount-row"></div>
+        <button id="buy-btn" class="avail">立即購買 · 啟動聲納</button>
+      </div>
+
+      <!-- CENTER: sonar scene -->
+      <div id="center-scene">
+        <div id="scanning-label">掃描中...</div>
+        <button id="sonar-btn" class="disabled">
+          <span id="sonar-icon">📡</span>
+          <span id="sonar-lbl">待購買</span>
+        </button>
+      </div>
+
+      <!-- RIGHT: progress -->
+      <div id="right-panel">
+        <div id="days-row"></div>
+        <div id="progress-hint">連購天數 · 越深加贈越多</div>
+      </div>
+
+    </div>
+  </div><!-- /ui-layer -->
+
+  <!-- Overlays -->
+  <div id="sonar-overlay"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <div id="result-overlay">
+    <div id="result-panel" class="result-panel fomo">
+      <div id="result-title" class="result-title">聲納回波結果</div>
+      <div id="result-amount" class="result-amount" style="color:#38D9FF">+0 神幣</div>
+      <div id="result-sub" class="result-sub"></div>
+      <button class="result-btn" onclick="handleResultConfirm()">收下獎勵</button>
+    </div>
+  </div>
+
+  <div id="giftbox-overlay">
+    <span class="giftbox-emoji">🎁</span>
+    <div class="giftbox-card">
+      <div class="giftbox-card-title">✨ 今日加贈禮盒開箱！</div>
+      <div class="giftbox-reward" id="giftbox-reward">體驗券 ×3</div>
+      <button class="giftbox-btn" onclick="handleGiftboxConfirm()">太棒了！</button>
+    </div>
+  </div>
+
+  <div class="dlg-overlay" id="dlg-success">
+    <div class="dlg-box">
+      <div class="dlg-icon">🎉</div>
+      <div class="dlg-title">儲值成功！</div>
+      <div class="dlg-body">儲值成功，立即啟動聲納！<br>祝您好運！</div>
+      <button class="dlg-btn" onclick="onSuccessConfirm()">立即探索</button>
+    </div>
+  </div>
+
+  <div class="dlg-overlay" id="dlg-reconnect">
+    <div class="dlg-box">
+      <div class="dlg-icon">🔄</div>
+      <div class="dlg-title">探索未完成</div>
+      <div class="dlg-body">前次探索尚未完成，<br>點確定後繼續</div>
+      <button class="dlg-btn" onclick="closeDialog('dlg-reconnect')">確定</button>
+    </div>
+  </div>
+
+  <!-- Debug panel -->
+  <div id="debug-panel">
+    <div id="debug-tab" onclick="toggleDebug()">⚙</div>
+    <div class="dbg-sec">🔧 Debug 面板</div>
+    <div class="dbg-row">
+      <div class="dbg-lbl">連購天數</div>
+      <select class="dbg-sel" id="dbg-day" onchange="dbgSetDay(+this.value)">
+        <option value="1">D1 淺海珊瑚礁</option>
+        <option value="2">D2 珊瑚礁（禮盒日）</option>
+        <option value="3">D3 中層海溝</option>
+        <option value="4">D4 海溝（禮盒日）</option>
+        <option value="5">D5 深海遺跡</option>
+        <option value="6">D6 深海遺跡</option>
+        <option value="7">D7+ 沉船寶藏艙</option>
+      </select>
+    </div>
+    <div class="dbg-row">
+      <div class="dbg-lbl">VIP 梯度</div>
+      <select class="dbg-sel" id="dbg-vip" onchange="dbgSetVip(+this.value)">
+        <option value="0">一般探索員 Lv1–5</option>
+        <option value="1" selected>進階探索員 Lv6–7</option>
+        <option value="2">資深探索員 Lv8</option>
+        <option value="3">菁英探索員 Lv9–10</option>
+        <option value="4">傳奇探索員 Lv11–13</option>
+      </select>
+    </div>
+    <div class="dbg-sec">🎯 結算控制</div>
+    <div class="dbg-btns">
+      <button class="dbg-btn" id="btn-fmax" onclick="dbgForceMax(true)">強制最大獎</button>
+      <button class="dbg-btn" id="btn-ffomo" onclick="dbgForceMax(false)">標準FOMO</button>
+      <button class="dbg-btn" id="btn-frank" onclick="dbgForceMax(null)">隨機</button>
+    </div>
+    <div class="dbg-sec">🎁 禮盒控制</div>
+    <div class="dbg-btns">
+      <button class="dbg-btn" id="btn-gon" onclick="dbgGiftbox(true)">強制禮盒</button>
+      <button class="dbg-btn" id="btn-goff" onclick="dbgGiftbox(false)">不觸發</button>
+      <button class="dbg-btn" id="btn-gauto" onclick="dbgGiftbox(null)">規則觸發</button>
+    </div>
+    <div class="dbg-sec">⚡ 快速操作</div>
+    <div class="dbg-btns">
+      <button class="dbg-btn" onclick="resetAll()">重置介面</button>
+      <button class="dbg-btn" onclick="simReconnect()">斷線重連</button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// === CONFIG ===
+const VIP=[
+  {name:'一般探索員',  bonus:[100,120,130,140,150,180,200]},
+  {name:'進階探索員',  bonus:[110,135,148,165,178,210,235]},
+  {name:'資深探索員',  bonus:[125,152,168,188,205,240,270]},
+  {name:'菁英探索員',  bonus:[140,170,192,215,235,275,310]},
+  {name:'傳奇探索員',  bonus:[158,192,218,245,268,315,355]},
+];
+const AMOUNTS=[130,370,590];
+const COIN_RATE=100;
+const ZONES=[
+  {maxDay:2, name:'淺海珊瑚礁',bg:'var(--z-d1-bg)',accent:'#38D9FF',icon:'📡',goldZone:false,
+   decos:['🪸','🐠','🐟','🦀','🐡','🌊','🐚','🦞']},
+  {maxDay:4, name:'中層海溝',  bg:'var(--z-d3-bg)',accent:'#00C8F0',icon:'🛸',goldZone:false,
+   decos:['🦑','🐋','🦈','💠','🫧','🐬','🌀','🐙']},
+  {maxDay:6, name:'深海遺跡',  bg:'var(--z-d5-bg)',accent:'#CC88FF',icon:'⚡',goldZone:false,
+   decos:['🏺','🗿','🔮','🧿','👁','💜','🌌','🔱']},
+  {maxDay:99,name:'沉船寶藏艙',bg:'var(--z-d7-bg)',accent:'#FFD700',icon:'⚓',goldZone:true,
+   decos:['💰','👑','⚓','💎','🏴‍☠️','✨','🥇','🪙']},
+];
+const HAS_GIFT=[false,true,false,true,false,false,true];
+const GIFTBOX_ITEMS=['VIP體驗券 ×1','加贈券 10%','道具包 ×5','儲值加贈券 15%','體驗券 ×3'];
+const PROMO_BEFORE=[
+  '連探 7 日獎金上看 {max} 神幣！',
+  '今日限贈禮盒 ×1！再探最高加贈 {pct}%',
+  '再探一次，大獎升級 {max} 神幣！',
+  '今日限贈禮盒 ×1！再探最高加贈 {pct}%',
+  '再探一次，大獎升級 {max} 神幣！',
+  '再探一次，明日解鎖寶藏艙抽 {max} 神幣！',
+  '維持每日一探，天天挖 {max} 神幣！',
+];
+
+// === STATE ===
+const S={
+  day:1,vip:1,selAmt:1,
+  purchased:false,gamePhase:'idle',
+  forceMax:null,forceGift:null,doneGiftbox:false,
+};
+
+// === HELPERS ===
+function getZone(d){for(const z of ZONES)if(d<=z.maxDay)return z;return ZONES[ZONES.length-1]}
+function calcMax(amt,day,vip){return Math.floor(amt*COIN_RATE*(1+VIP[vip].bonus[Math.min(day-1,6)]/100))}
+function pickReward(amt,day,vip,isMax){
+  const max=calcMax(amt,day,vip);
+  return isMax?max:Math.floor(max*(0.35+Math.random()*0.5));
+}
+function shouldGift(day){
+  if(S.forceGift===true)return true;
+  if(S.forceGift===false)return false;
+  if(day===2||day===4)return true;
+  if(day>=7)return Math.random()<0.5;
+  return false;
+}
+function fmt(n){return n.toLocaleString()}
+function pad(n){return String(n).padStart(2,'0')}
+function getCountdown(){
+  const now=new Date(),next=new Date(now);
+  next.setHours(12,0,0,0);if(next<=now)next.setDate(next.getDate()+1);
+  const ms=next-now;
+  return `${pad(Math.floor(ms/3600000))}:${pad(Math.floor(ms%3600000/60000))}:${pad(Math.floor(ms%60000/1000))}`;
+}
+
+// === UI UPDATE ===
+function updateBg(){
+  const z=getZone(S.day);
+  document.getElementById('ocean-bg').style.background=z.bg;
+  document.getElementById('zone-badge').textContent=`📍 ${z.name}`;
+
+  // Deco
+  const deco=document.getElementById('deco-layer');
+  deco.innerHTML='';
+  z.decos.forEach(emoji=>{
+    const el=document.createElement('div');
+    const x=5+Math.random()*90,y=5+Math.random()*90;
+    const sz=14+Math.random()*24,dur=3+Math.random()*5,delay=Math.random()*4;
+    el.style.cssText=`position:absolute;left:${x}%;top:${y}%;font-size:${sz}px;
+      opacity:${0.2+Math.random()*0.4};
+      animation:caustic ${dur}s ease-in-out ${delay}s infinite;
+      pointer-events:none;user-select:none;`;
+    el.textContent=emoji;
+    deco.appendChild(el);
+  });
+
+  // Bubbles
+  const bbl=document.getElementById('bubble-layer');
+  bbl.innerHTML='';
+  for(let i=0;i<14;i++){
+    const b=document.createElement('div');
+    const sz=3+Math.random()*7,dur=4+Math.random()*6,delay=Math.random()*6;
+    b.style.cssText=`position:absolute;bottom:-20px;left:${Math.random()*100}%;
+      width:${sz}px;height:${sz}px;border-radius:50%;
+      background:radial-gradient(circle at 35% 35%,rgba(255,255,255,0.7),rgba(255,255,255,0.1));
+      border:1px solid rgba(255,255,255,0.3);opacity:0.45;
+      animation:float-up ${dur}s linear ${delay}s infinite;`;
+    bbl.appendChild(b);
+  }
+}
+
+function updateHeader(){
+  const pct=VIP[S.vip].bonus[Math.min(S.day-1,6)];
+  document.getElementById('vip-badge').textContent=`${VIP[S.vip].name} · +${pct}%`;
+}
+
+function updateSonarBtn(){
+  const btn=document.getElementById('sonar-btn');
+  const z=getZone(S.day);
+  const scanLbl=document.getElementById('scanning-label');
+  if(S.purchased&&S.gamePhase==='idle'){
+    btn.className=`active${z.goldZone?' gold-zone':''}`;
+    btn.onclick=onSonarClick;
+    document.getElementById('sonar-icon').textContent=z.icon;
+    document.getElementById('sonar-lbl').textContent='按下聲納';
+    scanLbl.style.display='block';
+  } else if(S.gamePhase==='done'){
+    btn.className='disabled';btn.onclick=null;
+    document.getElementById('sonar-icon').textContent='✅';
+    document.getElementById('sonar-lbl').textContent='今日已探';
+    scanLbl.style.display='none';
+  } else {
+    btn.className='disabled';btn.onclick=null;
+    document.getElementById('sonar-icon').textContent='📡';
+    document.getElementById('sonar-lbl').textContent='待購買';
+    scanLbl.style.display='none';
+  }
+}
+
+function updatePurchase(){
+  const row=document.getElementById('amount-row');
+  row.innerHTML='';
+  AMOUNTS.forEach((amt,i)=>{
+    const b=document.createElement('button');
+    b.className='amt-btn'+(i===S.selAmt?' sel':'');
+    b.textContent=`NT$${amt}`;
+    b.onclick=()=>{S.selAmt=i;updatePurchase();updatePromo()};
+    row.appendChild(b);
+  });
+  const btn=document.getElementById('buy-btn');
+  if(S.gamePhase==='done'){
+    btn.className='buy-btn purchased';
+    btn.textContent=`今日已探索 · ${getCountdown()}`;btn.onclick=null;
+  } else if(S.purchased){
+    btn.className='buy-btn purchased';
+    btn.textContent='已購買 · 聲納待啟動';btn.onclick=null;
+  } else {
+    const pct=VIP[S.vip].bonus[Math.min(S.day-1,6)];
+    btn.className='buy-btn avail';
+    btn.textContent=`立即購買 NT$${AMOUNTS[S.selAmt]} · 加贈 ${pct}%`;
+    btn.onclick=onBuyClick;
+  }
+}
+
+function updateProgress(){
+  const row=document.getElementById('days-row');
+  row.innerHTML='';
+  for(let d=1;d<=7;d++){
+    const isDone=d<S.day||(d===S.day&&S.gamePhase==='done');
+    const isCur=d===S.day&&S.gamePhase!=='done';
+    const hasG=HAS_GIFT[d-1];
+    const pct=VIP[S.vip].bonus[Math.min(d-1,6)];
+    const label=d===7?'D7+':'D'+d;
+    let emoji=d<=2?'🪸':d<=4?'🐋':d<=6?'🏺':'💰';
+    const cell=document.createElement('div');
+    cell.className='day-cell '+(isDone?'done':isCur?'cur':'future');
+    cell.innerHTML=`
+      <div class="day-circle">
+        ${isDone?'✅':emoji}
+        ${hasG&&!isDone?'<span class="gift-pip">🎁</span>':''}
+      </div>
+      <div class="day-meta">
+        <div class="day-lbl">${label}</div>
+        <div class="day-pct">+${pct}%</div>
+      </div>`;
+    row.appendChild(cell);
+  }
+}
+
+function updatePromo(){
+  const el=document.getElementById('promo-text');
+  const idx=Math.min(S.day-1,6);
+  const pct=VIP[S.vip].bonus[idx];
+  const maxAmt=calcMax(AMOUNTS[S.selAmt],S.day,S.vip);
+  if(S.gamePhase==='done'){
+    el.textContent=S.doneGiftbox
+      ?'今日加贈禮盒已入帳！明日再探拼最大獎'
+      :`明日再探，拼最大獎 ${fmt(calcMax(AMOUNTS[S.selAmt],Math.min(S.day+1,7),S.vip))} 神幣`;
+    return;
+  }
+  el.textContent=PROMO_BEFORE[idx].replace('{max}',fmt(maxAmt)).replace('{pct}',pct);
+}
+
+function refreshAll(){
+  updateBg();updateHeader();updateSonarBtn();
+  updatePurchase();updateProgress();updatePromo();
+}
+
+// === EVENTS ===
+function onBuyClick(){document.getElementById('dlg-success').style.display='flex'}
+function onSuccessConfirm(){
+  closeDialog('dlg-success');S.purchased=true;refreshAll();
+}
+function onSonarClick(){
+  if(S.gamePhase!=='idle'||!S.purchased)return;
+  S.gamePhase='sonar';updateSonarBtn();
+  document.getElementById('sonar-btn').onclick=null;
+  document.getElementById('scanning-label').style.display='none';
+
+  const z=getZone(S.day);
+  const overlay=document.getElementById('sonar-overlay');
+  overlay.style.display='block';overlay.innerHTML='';
+  for(let i=0;i<4;i++){
+    const r=document.createElement('div');
+    r.className=`sonar-ring${z.goldZone?' gold-ring':''}`;
+    r.style.animationDelay=`${i*0.25}s`;
+    overlay.appendChild(r);
+  }
+  const isMax=S.forceMax===true?true:S.forceMax===false?false:Math.random()<0.22;
+  const reward=pickReward(AMOUNTS[S.selAmt],S.day,S.vip,isMax);
+  const hasGift=shouldGift(S.day);
+
+  setTimeout(()=>{
+    overlay.style.display='none';overlay.innerHTML='';
+    launchParticles(isMax);
+    showResult(reward,isMax,hasGift);
+  },2400);
+}
+
+function showResult(reward,isMax,hasGift){
+  const panel=document.getElementById('result-panel');
+  const titleEl=document.getElementById('result-title');
+  const amtEl=document.getElementById('result-amount');
+  const subEl=document.getElementById('result-sub');
+  if(isMax){
+    panel.className='result-panel maxwin';
+    titleEl.style.color='rgba(255,215,0,0.8)';titleEl.textContent='🏆 今日最大寶藏已入帳！';
+    amtEl.style.color='#FFD700';
+    subEl.style.color='rgba(255,215,0,0.7)';subEl.textContent='✨ 今日最大獎勵！金幣洶湧而來！';
+  } else {
+    panel.className='result-panel fomo';
+    titleEl.style.color='rgba(255,255,255,0.6)';titleEl.textContent='📡 聲納回波結果';
+    amtEl.style.color='#38D9FF';
+    subEl.style.color='rgba(150,200,255,0.75)';subEl.textContent='🔍 附近還有更大的寶藏... 明日再探！';
+  }
+  animateNum(amtEl,0,reward);
+  const ov=document.getElementById('result-overlay');
+  ov.style.display='flex';ov.dataset.hasGift=hasGift?'1':'0';
+  S.gamePhase='result';
+}
+
+function handleResultConfirm(){
+  const hasGift=document.getElementById('result-overlay').dataset.hasGift==='1';
+  document.getElementById('result-overlay').style.display='none';
+  hasGift?showGiftbox():completeDay(false);
+}
+
+function showGiftbox(){
+  S.gamePhase='giftbox';
+  document.getElementById('giftbox-reward').textContent=
+    GIFTBOX_ITEMS[Math.floor(Math.random()*GIFTBOX_ITEMS.length)];
+  document.getElementById('giftbox-overlay').style.display='flex';
+}
+
+function handleGiftboxConfirm(){
+  document.getElementById('giftbox-overlay').style.display='none';
+  completeDay(true);
+}
+
+function completeDay(hadGift){
+  S.doneGiftbox=hadGift;S.gamePhase='done';refreshAll();
+}
+
+// === PARTICLES ===
+function launchParticles(isMax){
+  const c=document.getElementById('particle-canvas');
+  c.style.display='block';
+  c.width=c.offsetWidth||844;c.height=c.offsetHeight||390;
+  const ctx=c.getContext('2d');
+  const cx=c.width/2,cy=c.height/2;
+  const ps=[];const count=isMax?85:32;
+  for(let i=0;i<count;i++){
+    const a=Math.random()*Math.PI*2,sp=isMax?(3+Math.random()*9):(1.5+Math.random()*5);
+    ps.push({
+      x:cx,y:cy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-(isMax?1.5:0.8),
+      life:1,decay:0.012+Math.random()*0.018,
+      sz:isMax?(5+Math.random()*9):(3+Math.random()*6),
+      emoji:isMax?(Math.random()<0.45?'✨':'💰'):'💫',
+    });
+  }
+  let fr=0;
+  (function draw(){
+    ctx.clearRect(0,0,c.width,c.height);
+    let alive=0;
+    ps.forEach(p=>{
+      if(p.life<=0)return;alive++;
+      p.x+=p.vx;p.y+=p.vy;p.vy+=0.18;p.life-=p.decay;
+      ctx.globalAlpha=Math.max(0,p.life);
+      ctx.font=`${p.sz*3}px serif`;ctx.fillText(p.emoji,p.x,p.y);
+    });
+    ctx.globalAlpha=1;
+    if(alive>0&&fr<250){fr++;requestAnimationFrame(draw);}
+    else{c.style.display='none';ctx.clearRect(0,0,c.width,c.height);}
+  })();
+}
+
+function animateNum(el,from,to){
+  const dur=750,start=performance.now();
+  (function tick(now){
+    const t=Math.min((now-start)/dur,1);
+    const ease=1-Math.pow(1-t,3);
+    el.textContent='+'+fmt(Math.floor(from+(to-from)*ease))+' 神幣';
+    if(t<1)requestAnimationFrame(tick);
+  })(performance.now());
+}
+
+// === DEBUG ===
+function toggleDebug(){document.getElementById('debug-panel').classList.toggle('open')}
+function dbgSetDay(d){
+  S.day=d;S.purchased=false;S.gamePhase='idle';S.doneGiftbox=false;
+  closeAllOverlays();refreshAll();
+}
+function dbgSetVip(v){S.vip=v;refreshAll()}
+function dbgForceMax(v){
+  S.forceMax=v;
+  ['btn-fmax','btn-ffomo','btn-frank'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  if(v===true)document.getElementById('btn-fmax').classList.add('on');
+  else if(v===false)document.getElementById('btn-ffomo').classList.add('on');
+  else document.getElementById('btn-frank').classList.add('on');
+}
+function dbgGiftbox(v){
+  S.forceGift=v;
+  ['btn-gon','btn-goff','btn-gauto'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  if(v===true)document.getElementById('btn-gon').classList.add('on');
+  else if(v===false)document.getElementById('btn-goff').classList.add('on');
+  else document.getElementById('btn-gauto').classList.add('on');
+}
+function resetAll(){
+  S.purchased=false;S.gamePhase='idle';S.doneGiftbox=false;
+  closeAllOverlays();refreshAll();
+}
+function simReconnect(){
+  S.purchased=true;S.gamePhase='idle';
+  closeAllOverlays();refreshAll();
+  document.getElementById('dlg-reconnect').style.display='flex';
+}
+function closeDialog(id){document.getElementById(id).style.display='none'}
+function closeAllOverlays(){
+  ['sonar-overlay','particle-canvas','result-overlay','giftbox-overlay',
+   'dlg-success','dlg-reconnect'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.style.display='none';
+  });
+  document.getElementById('sonar-overlay').innerHTML='';
+}
+
+// === INIT ===
+setInterval(()=>{
+  document.getElementById('countdown').textContent=getCountdown();
+  if(S.gamePhase==='done'){
+    const btn=document.getElementById('buy-btn');
+    if(btn.classList.contains('purchased'))
+      btn.textContent=`今日已探索 · ${getCountdown()}`;
+  }
+},1000);
+refreshAll();
+dbgForceMax(null);dbgGiftbox(null);
+</script>
+</body>
+</html>
