@@ -334,11 +334,21 @@ body{
 /* === DEBUG PANEL === */
 #debug-panel{
   position:absolute;right:-215px;top:48px;width:208px;
+  max-height:calc(100% - 56px);
   background:rgba(0,0,0,0.93);border:1px solid rgba(255,255,255,0.14);
-  border-radius:14px 0 0 14px;padding:12px;z-index:100;
+  border-radius:14px 0 0 14px;z-index:100;
   transition:right 0.3s ease;color:#fff;font-size:12px;
+  display:flex;flex-direction:column;overflow:visible;
 }
 #debug-panel.open{right:0}
+#debug-scroll{
+  overflow-y:auto;overflow-x:hidden;
+  padding:12px;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;
+}
+#debug-scroll::-webkit-scrollbar{width:4px}
+#debug-scroll::-webkit-scrollbar-track{background:transparent}
+#debug-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:2px}
 #debug-tab{
   position:absolute;left:-26px;top:50%;transform:translateY(-50%);
   width:24px;height:52px;background:rgba(0,0,0,0.85);
@@ -404,7 +414,16 @@ body{
       <div id="left-panel">
         <div id="promo-text"></div>
         <div class="amount-row" id="amount-row"></div>
-        <button id="buy-btn" class="avail">立即購買 · 啟動聲納</button>
+        <div id="first-time-badge" style="display:none;font-size:10px;color:#FFD700;text-align:center;letter-spacing:1px;margin-bottom:4px;">✦ 首次限定優惠 ✦</div>
+        <button id="buy-btn" class="avail">立即購買</button>
+        <div id="upgrade-hint" style="font-size:10px;color:rgba(255,220,150,0.55);text-align:center;line-height:1.4;min-height:14px;"></div>
+      </div>
+
+      <!-- Entry icon preview -->
+      <div id="entry-icon-preview" style="position:absolute;top:52px;left:8px;z-index:30;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:5px 8px;font-size:12px;text-align:center;line-height:1.4;pointer-events:none;">
+        <div id="entry-icon-light" style="font-size:20px;">🔊</div>
+        <div id="entry-pct-badge" style="color:#FFD700;font-weight:700;font-size:10px;"></div>
+        <div id="entry-first-badge" style="display:none;color:#FF9900;font-size:9px;font-weight:700;">首次限定</div>
       </div>
 
       <!-- CENTER: sonar scene -->
@@ -419,7 +438,8 @@ body{
       <!-- RIGHT: progress -->
       <div id="right-panel">
         <div id="days-row"></div>
-        <div id="progress-hint">連購天數 · 越深加贈越多</div>
+        <div id="weekly-earned" style="text-align:center;font-size:10px;color:rgba(255,215,0,0.65);margin-top:2px;min-height:14px;"></div>
+        <div id="progress-hint" style="text-align:center;font-size:9px;color:rgba(255,255,255,0.25);margin-top:1px;">連購天數 · 越深加贈越多</div>
       </div>
 
     </div>
@@ -468,6 +488,7 @@ body{
   <!-- Debug panel -->
   <div id="debug-panel">
     <div id="debug-tab" onclick="toggleDebug()">⚙</div>
+    <div id="debug-scroll">
     <div class="dbg-sec">🔧 Debug 面板</div>
     <div class="dbg-row">
       <div class="dbg-lbl">連購天數</div>
@@ -491,6 +512,18 @@ body{
         <option value="4">傳奇探索員 Lv11–13</option>
       </select>
     </div>
+    <div class="dbg-row">
+      <div class="dbg-lbl">方案梯度（購買金額）</div>
+      <select class="dbg-sel" id="dbg-amt" onchange="dbgSetAmt(+this.value)">
+        <option value="130">NT$130（Lv1–4）</option>
+        <option value="370">NT$370（Lv3–7）</option>
+        <option value="590" selected>NT$590（Lv5–8）</option>
+        <option value="1090">NT$1,090（Lv7–10）</option>
+        <option value="2990">NT$2,990（Lv9–11）</option>
+        <option value="6590">NT$6,590（Lv11–13）</option>
+        <option value="12000">NT$12,000（Lv12–13）</option>
+      </select>
+    </div>
     <div class="dbg-sec">🎯 結算控制</div>
     <div class="dbg-btns">
       <button class="dbg-btn" id="btn-fmax" onclick="dbgForceMax(true)">強制最大獎</button>
@@ -503,11 +536,19 @@ body{
       <button class="dbg-btn" id="btn-goff" onclick="dbgGiftbox(false)">不觸發</button>
       <button class="dbg-btn" id="btn-gauto" onclick="dbgGiftbox(null)">規則觸發</button>
     </div>
+    <div class="dbg-sec">👤 玩家狀態</div>
+    <div class="dbg-row">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;">
+        <input type="checkbox" id="dbgFirstTime" onchange="S.isFirstTime=this.checked;refreshAll()">
+        首次玩家模式
+      </label>
+    </div>
     <div class="dbg-sec">⚡ 快速操作</div>
     <div class="dbg-btns">
       <button class="dbg-btn" onclick="resetAll()">重置介面</button>
       <button class="dbg-btn" onclick="simReconnect()">斷線重連</button>
     </div>
+    </div><!-- /debug-scroll -->
   </div>
 
 </div><!-- /app -->
@@ -521,7 +562,8 @@ const VIP=[
   {name:'菁英探索員',  bonus:[140,170,192,215,235,275,310]},
   {name:'傳奇探索員',  bonus:[158,192,218,245,268,315,355]},
 ];
-const AMOUNTS=[130,370,590];
+const ALL_AMOUNTS=[130,370,590,1090,2990,6590,12000];
+let AMOUNTS=[130,370,590];
 const COIN_RATE=100;
 const ZONES=[
   {maxDay:2, name:'淺海珊瑚礁',bg:'var(--z-d1-bg)',accent:'#38D9FF',icon:'📡',goldZone:false,
@@ -536,13 +578,13 @@ const ZONES=[
 const HAS_GIFT=[false,true,false,true,false,false,true];
 const GIFTBOX_ITEMS=['VIP體驗券 ×1','加贈券 10%','道具包 ×5','儲值加贈券 15%','體驗券 ×3'];
 const PROMO_BEFORE=[
-  '連探 7 日獎金上看 {max} 神幣！',
+  '今日加贈 {pct}%，探索越深獎勵越豐',
   '今日限贈禮盒 ×1！再探最高加贈 {pct}%',
   '再探一次，大獎升級 {max} 神幣！',
   '今日限贈禮盒 ×1！再探最高加贈 {pct}%',
   '再探一次，大獎升級 {max} 神幣！',
   '再探一次，明日解鎖寶藏艙抽 {max} 神幣！',
-  '維持每日一探，天天挖 {max} 神幣！',
+  '今日加贈 {pct}%，維持每日一探天天有獎',
 ];
 
 // === STATE ===
@@ -550,6 +592,8 @@ const S={
   day:1,vip:1,selAmt:1,
   purchased:false,gamePhase:'idle',
   forceMax:null,forceGift:null,doneGiftbox:false,
+  weeklyEarned:0,
+  isFirstTime:false,
 };
 
 // === HELPERS ===
@@ -634,7 +678,7 @@ function updateSonarBtn(){
   } else {
     btn.className='disabled';btn.onclick=null;
     document.getElementById('sonar-icon').textContent='📡';
-    document.getElementById('sonar-lbl').textContent='待購買';
+    document.getElementById('sonar-lbl').textContent='搜尋中';
     scanLbl.style.display='none';
   }
 }
@@ -659,9 +703,18 @@ function updatePurchase(){
   } else {
     const pct=VIP[S.vip].bonus[Math.min(S.day-1,6)];
     btn.className='buy-btn avail';
-    btn.textContent=`立即購買 NT$${AMOUNTS[S.selAmt]} · 加贈 ${pct}%`;
+    btn.textContent=S.isFirstTime?'首次探索':'立即購買';
     btn.onclick=onBuyClick;
   }
+  const UPGRADE_HINT=[
+    '下個月達成 NT$3,000，加贈提升至 +110%',
+    '下個月達成 NT$15,000，加贈提升至 +125%',
+    '下個月達成 NT$30,000，加贈提升至 +140%',
+    '下個月達成 NT$500,000，加贈提升至 +158%',
+    '',
+  ];
+  const hintEl=document.getElementById('upgrade-hint');
+  if(hintEl) hintEl.textContent=UPGRADE_HINT[S.vip];
 }
 
 function updateProgress(){
@@ -683,10 +736,12 @@ function updateProgress(){
       </div>
       <div class="day-meta">
         <div class="day-lbl">${label}</div>
-        <div class="day-pct">+${pct}%</div>
+        <div class="day-pct">${isDone||isCur?'+'+pct+'%':'🔒'}</div>
       </div>`;
     row.appendChild(cell);
   }
+  const earnedEl=document.getElementById('weekly-earned');
+  if(earnedEl) earnedEl.textContent=S.weeklyEarned>0?`本週已累積加贈 ${fmt(S.weeklyEarned)} 神幣`:'';
 }
 
 function updatePromo(){
@@ -695,24 +750,46 @@ function updatePromo(){
   const pct=VIP[S.vip].bonus[idx];
   const maxAmt=calcMax(AMOUNTS[S.selAmt],S.day,S.vip);
   if(S.gamePhase==='done'){
+    const nextDay=Math.min(S.day+1,7);
+    const nextMax=calcMax(AMOUNTS[S.selAmt],nextDay,S.vip);
+    const nextZone=getZone(nextDay);
     el.textContent=S.doneGiftbox
-      ?'今日加贈禮盒已入帳！明日再探拼最大獎'
-      :`明日再探，拼最大獎 ${fmt(calcMax(AMOUNTS[S.selAmt],Math.min(S.day+1,7),S.vip))} 神幣`;
+      ?`今日禮盒已入帳！明日進入${nextZone.name}，最高可得 ${fmt(nextMax)} 神幣`
+      :`明日進入${nextZone.name}，最高可得 ${fmt(nextMax)} 神幣`;
     return;
   }
-  el.textContent=PROMO_BEFORE[idx].replace('{max}',fmt(maxAmt)).replace('{pct}',pct);
+  const d1text=S.isFirstTime&&idx===0
+    ?'首次探索限定・今日加贈 {pct}%，立即體驗'
+    :PROMO_BEFORE[idx];
+  el.textContent=d1text.replace('{max}',fmt(maxAmt)).replace('{pct}',pct);
+}
+
+function updateFirstTimeUI(){
+  // 8-1 進度條
+  document.getElementById('right-panel').style.display=S.isFirstTime?'none':'';
+  // 8-2 升級提示
+  document.getElementById('upgrade-hint').style.display=S.isFirstTime?'none':'';
+  // 8-4 首次標籤（只在未購買時出現）
+  document.getElementById('first-time-badge').style.display=
+    S.isFirstTime&&!S.purchased?'block':'none';
+}
+
+function updateEntryIcon(){
+  const pct=VIP[S.vip].bonus[Math.min(S.day-1,6)];
+  document.getElementById('entry-pct-badge').textContent=`+${pct}%`;
+  document.getElementById('entry-first-badge').style.display=S.isFirstTime?'block':'none';
+  document.getElementById('entry-icon-light').textContent=S.purchased?'🔇':'🔊';
 }
 
 function refreshAll(){
   updateBg();updateHeader();updateSonarBtn();
   updatePurchase();updateProgress();updatePromo();
+  updateFirstTimeUI();updateEntryIcon();
 }
 
 // === EVENTS ===
-function onBuyClick(){document.getElementById('dlg-success').style.display='flex'}
-function onSuccessConfirm(){
-  closeDialog('dlg-success');S.purchased=true;refreshAll();
-}
+function onBuyClick(){S.purchased=true;refreshAll();onSonarClick();}
+function onSuccessConfirm(){closeDialog('dlg-success');S.purchased=true;refreshAll();}
 function onSonarClick(){
   if(S.gamePhase!=='idle'||!S.purchased)return;
   S.gamePhase='sonar';updateSonarBtn();
@@ -757,30 +834,39 @@ function showResult(reward,isMax,hasGift){
   }
   animateNum(amtEl,0,reward);
   const ov=document.getElementById('result-overlay');
-  ov.style.display='flex';ov.dataset.hasGift=hasGift?'1':'0';
+  ov.style.display='flex';ov.dataset.hasGift=hasGift?'1':'0';ov.dataset.reward=reward;
   S.gamePhase='result';
 }
 
 function handleResultConfirm(){
-  const hasGift=document.getElementById('result-overlay').dataset.hasGift==='1';
-  document.getElementById('result-overlay').style.display='none';
-  hasGift?showGiftbox():completeDay(false);
+  const ov=document.getElementById('result-overlay');
+  const hasGift=ov.dataset.hasGift==='1';
+  const reward=+ov.dataset.reward||0;
+  ov.style.display='none';
+  hasGift?showGiftbox(reward):completeDay(false,reward);
 }
 
-function showGiftbox(){
+function showGiftbox(reward){
   S.gamePhase='giftbox';
   document.getElementById('giftbox-reward').textContent=
     GIFTBOX_ITEMS[Math.floor(Math.random()*GIFTBOX_ITEMS.length)];
-  document.getElementById('giftbox-overlay').style.display='flex';
+  const ov=document.getElementById('giftbox-overlay');
+  ov.style.display='flex';ov.dataset.reward=reward||0;
 }
 
 function handleGiftboxConfirm(){
+  const reward=+document.getElementById('giftbox-overlay').dataset.reward||0;
   document.getElementById('giftbox-overlay').style.display='none';
-  completeDay(true);
+  completeDay(true,reward);
 }
 
-function completeDay(hadGift){
-  S.doneGiftbox=hadGift;S.gamePhase='done';refreshAll();
+function completeDay(hadGift,reward){
+  S.doneGiftbox=hadGift;
+  S.weeklyEarned+=(reward||0);
+  S.isFirstTime=false;
+  const cb=document.getElementById('dbgFirstTime');
+  if(cb) cb.checked=false;
+  S.gamePhase='done';refreshAll();
 }
 
 // === PARTICLES ===
@@ -833,6 +919,15 @@ function dbgSetDay(d){
   closeAllOverlays();refreshAll();
 }
 function dbgSetVip(v){S.vip=v;refreshAll()}
+function dbgSetAmt(v){
+  const idx=ALL_AMOUNTS.indexOf(v);
+  const start=Math.max(0,Math.min(idx-1,ALL_AMOUNTS.length-3));
+  AMOUNTS.length=0;
+  ALL_AMOUNTS.slice(start,start+3).forEach(a=>AMOUNTS.push(a));
+  S.selAmt=AMOUNTS.indexOf(v);
+  if(S.selAmt<0){AMOUNTS.length=0;AMOUNTS.push(v);S.selAmt=0;}
+  refreshAll();
+}
 function dbgForceMax(v){
   S.forceMax=v;
   ['btn-fmax','btn-ffomo','btn-frank'].forEach(id=>document.getElementById(id).classList.remove('on'));
@@ -848,7 +943,7 @@ function dbgGiftbox(v){
   else document.getElementById('btn-gauto').classList.add('on');
 }
 function resetAll(){
-  S.purchased=false;S.gamePhase='idle';S.doneGiftbox=false;
+  S.purchased=false;S.gamePhase='idle';S.doneGiftbox=false;S.weeklyEarned=0;
   closeAllOverlays();refreshAll();
 }
 function simReconnect(){
