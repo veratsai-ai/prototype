@@ -702,7 +702,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
   <div id="betDialog" class="bet-dialog-overlay hidden" onclick="closeBetDialogOutside(event)">
     <div class="bet-dialog">
       <div class="bet-dialog-title" id="betDialogTitle">選擇注額</div>
-      <div class="bet-dialog-desc">注額同時作為每球投注與預測費用<br>預測確認後本局不得更換</div>
+      <div class="bet-dialog-desc">注額同時作為每球投注與預測費用</div>
       <div class="bet-dialog-grid" id="betDialogGrid"></div>
       <button class="bet-dialog-close" onclick="closeBetDialog()">取消</button>
     </div>
@@ -1931,7 +1931,6 @@ function confirmPrediction(){
       predOddEven:[...STATE.predOddEven], predExactScore:[...STATE.predExactScore],
     };
   }
-  lockBetChange();
   startBatting();
 }
 
