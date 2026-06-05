@@ -288,7 +288,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
 .predict-btn{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;color:rgba(255,255,255,.4);font-family:var(--fb);font-size:11px;font-weight:500;padding:6px 3px;cursor:pointer;transition:all .15s;text-align:center;line-height:1.2}
 .predict-btn:hover{background:rgba(212,160,74,.12);border-color:rgba(212,160,74,.45);color:rgba(212,160,74,.95)}
 .predict-btn.selected{background:linear-gradient(155deg,rgba(74,196,87,.28),rgba(74,196,87,.12));border-color:rgba(74,196,87,.7);color:#80ea84;box-shadow:0 0 8px rgba(74,196,87,.3),inset 0 0 6px rgba(74,196,87,.08);font-weight:700}
-.predict-btn small{display:block;font-size:9px;opacity:.62;margin-top:1px}
+.predict-btn small{display:block;font-size:9px;color:rgba(212,160,74,.72);margin-top:1px}
+.predict-btn.selected small{color:rgba(255,255,255,.85)}
 .pred-cost-hint{font-family:var(--fb);font-size:11px;color:var(--dim);text-align:center;margin-bottom:4px;min-height:15px}
 .pred-cost-hint.has-cost{color:var(--gold)}
 .pred-countdown{font-family:var(--fd);font-size:11px;color:var(--gold);text-align:center;margin-bottom:4px;letter-spacing:.08em}
@@ -390,6 +391,15 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
 @keyframes scoreFloat{0%{opacity:0;transform:translateX(-50%) translateY(0) scale(.7)}20%{opacity:1;transform:translateX(-50%) translateY(-10px) scale(1.2)}60%{opacity:1;transform:translateX(-50%) translateY(-40px) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-80px) scale(.85)}}
 @keyframes basePulse{0%,100%{box-shadow:0 0 10px rgba(212,160,74,.75)}50%{box-shadow:0 0 28px rgba(255,220,60,1),0 0 50px rgba(212,160,74,.5)}}
 .base.bases-loaded{animation:basePulse .5s ease-in-out 3}
+/* === 打者跑壘 === */
+@keyframes batterRunRight{0%{transform:translateX(-50%);opacity:1}80%{opacity:1}100%{transform:translateX(calc(-50% + 130px));opacity:0}}
+.batter-img.running{animation:batterRunRight .8s ease-in forwards !important}
+
+/* === 得分跑者 === */
+.score-runner{position:absolute;bottom:18%;left:-80px;width:55px;height:80px;background-image:url('assets/portrait/batter_idle.png');background-size:contain;background-repeat:no-repeat;background-position:center;opacity:0;pointer-events:none;z-index:12;transform:scaleX(-1)}
+.score-runner.run-in{animation:runnerToHome 1.1s ease-in-out forwards}
+@keyframes runnerToHome{0%{left:-80px;bottom:22%;opacity:0}15%{opacity:1}70%{left:42%;bottom:14%;opacity:1}85%{left:44%;bottom:13%;opacity:1}100%{left:44%;bottom:13%;opacity:0}}
+
 .base.in-transit{background:#fff8a0 !important;border-color:#fff !important;box-shadow:0 0 22px rgba(255,240,80,1),0 0 44px rgba(255,200,40,.7) !important;transform:rotate(45deg) scale(1.22) !important;transition:transform .1s ease-out}
 
 /* === JP 升級倍率飛出 === */
@@ -650,6 +660,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
       </div>
     </div>
 
+    <div id="scoreRunner" class="score-runner"></div>
+
     <!-- JP Dialog -->
     <div id="jpDialog" class="jp-dialog hidden">
       <div class="jp-dialog-bg"></div>
@@ -893,6 +905,7 @@ const STATE = {
   predBet:500,
   jpMults:{hit_billboard_a:1,hit_billboard_b:1,hit_scoreboard:1},
   jpChargedId:null,
+  batterIndex:0,
 };
 let autoTimer = null;
 let autoCountdownTimer = null;
@@ -920,6 +933,12 @@ const SPRITES = {
   pitcherRelease: 'assets/portrait/pitcher_release.png',
   pitcherFollow:  'assets/portrait/pitcher_follow.png',
 };
+// 打者素材陣列（目前用同一套佔位，素材到位後替換路徑）
+const BATTER_VARIANTS=[
+  {idle:'assets/portrait/batter_idle.png', windup:'assets/portrait/batter_windup.png', swing:'assets/portrait/batter_swing.png', follow:'assets/portrait/batter_follow.png'},
+  {idle:'assets/portrait/batter_idle.png', windup:'assets/portrait/batter_windup.png', swing:'assets/portrait/batter_swing.png', follow:'assets/portrait/batter_follow.png'},
+  {idle:'assets/portrait/batter_idle.png', windup:'assets/portrait/batter_windup.png', swing:'assets/portrait/batter_swing.png', follow:'assets/portrait/batter_follow.png'},
+];
 Object.values(SPRITES).forEach(s => { const i = new Image(); i.src = s; });
 
 // === AUDIO ===
@@ -1166,7 +1185,7 @@ function showJPDialog(outcomeId,mult,amount){
   inner.style.borderColor=color;
   document.getElementById('jpDialogTitle').textContent=JP_DIALOG_NAMES[outcomeId]||'⚡ JP';
   const multEl=document.getElementById('jpDialogMult');
-  multEl.textContent=mult>1?`×${mult} UPGRADE!`:'×1';
+  multEl.textContent=mult>1?`×${mult} 倍升級！`:'×1';
   multEl.className='jp-dialog-mult'+(mult<=1?' no-upgrade':'');
   document.getElementById('jpDialogAmount').textContent='+'+amount.toLocaleString();
   dialog.classList.remove('hidden');
@@ -1206,7 +1225,7 @@ function showJPResult(outcomeId, mult, amount){
     const popup=document.createElement('div');
     popup.className=`jp-mult-popup mult-${mult}`;
     if(mult>=3) popup.classList.add('big-mult');
-    popup.textContent=`×${mult} UPGRADE!`;
+    popup.textContent=`×${mult} 倍升級！`;
     field.appendChild(popup);
     setTimeout(()=>popup.remove(),2400);
   }
@@ -1272,9 +1291,43 @@ function showRunnerPath(startBase, endBase, startDelay=0){
         if(t>=1&&t<=3) document.getElementById('base'+t).classList.add('occupied');
       }
       if(t>=1&&t<=3) flashBase(t);
-      if(t===0) setTimeout(()=>showScorePopup(),280);
+      if(t===0){ setTimeout(()=>showScorePopup(),280); setTimeout(()=>playScoreRunner(),200); }
     }, startDelay+i*620);
   });
+}
+
+function applyBatterSkin(idx){
+  const v=BATTER_VARIANTS[idx];
+  SPRITES.batterIdle   =v.idle;
+  SPRITES.batterWindup =v.windup;
+  SPRITES.batterSwing  =v.swing;
+  SPRITES.batterFollow =v.follow;
+  const el=document.getElementById('batter');
+  if(el) el.src=v.idle;
+}
+function nextBatter(){
+  STATE.batterIndex=(STATE.batterIndex+1)%BATTER_VARIANTS.length;
+  applyBatterSkin(STATE.batterIndex);
+}
+function playBatterRun(){
+  const el=document.getElementById('batter');
+  if(!el) return;
+  el.classList.remove('running');
+  void el.offsetWidth;
+  el.classList.add('running');
+  setTimeout(()=>el.classList.remove('running'),800);
+}
+let _runnerCooldown=false;
+function playScoreRunner(){
+  if(_runnerCooldown) return;
+  _runnerCooldown=true;
+  setTimeout(()=>_runnerCooldown=false,1500);
+  const runner=document.getElementById('scoreRunner');
+  if(!runner) return;
+  runner.classList.remove('run-in');
+  void runner.offsetWidth;
+  runner.classList.add('run-in');
+  setTimeout(()=>runner.classList.remove('run-in'),1100);
 }
 
 function showHRRun(){
@@ -1701,6 +1754,7 @@ async function pitch(){
     playJackpot();
     updateBalance(); updateCountBar();
     await sleep(2200);
+    nextBatter();
     resetField(); STATE.pitching=false; setUiLocked(false);
     if(STATE.auto&&STATE.phase==='batting') scheduleAuto();
     return;
@@ -1719,7 +1773,7 @@ async function pitch(){
 
   if(outcome.id==='strike'||outcome.id==='swing_miss'){
     STATE.strikes++;
-    if(STATE.strikes>=3){STATE.outs++; STATE.strikes=0; STATE.balls=0; showResult({id:'strikeout',label:'三振！',payout:0},0);}
+    if(STATE.strikes>=3){STATE.outs++; STATE.strikes=0; STATE.balls=0; showResult({id:'strikeout',label:'三振！',payout:0},0); nextBatter();}
   } else if(outcome.id==='ball'||outcome.id==='no_swing'){
     STATE.balls++;
     if(STATE.balls>=4){
@@ -1727,6 +1781,7 @@ async function pitch(){
       STATE.hitLog.push({label:'保送', payout:pw});
       showDelta(pw); advanceRunners(1,0); STATE.balls=0; STATE.strikes=0;
       showResult({id:'walk',label:'保送',payout:0.3},pw);
+      playBatterRun(); nextBatter();
     }
   } else if(outcome.id==='foul_left'||outcome.id==='foul_right'){
     if(STATE.strikes<2) STATE.strikes++;
@@ -1734,8 +1789,11 @@ async function pitch(){
     STATE.balls=0; STATE.strikes=0;
     if(outcome.id==='fly_out'||outcome.id==='ground_out'){
       STATE.outs++;
+      nextBatter();
     } else if(['hr_center','hr_left','hr_right'].includes(outcome.id)){
       STATE.hasHR=true; settleBaseRunners(); showHRRun();
+      playBatterRun();
+      setTimeout(nextBatter, 850);
       // 煙火粒子落點
       spawnSparks(outcome.target.left,outcome.target.top,'#ffd03c',12);
       if(outcome.id==='hr_center'){
@@ -1749,6 +1807,7 @@ async function pitch(){
       }
     } else if(outcome.id==='hit_left'||outcome.id==='hit_right'){
       advanceRunners(getHitAdvance(outcome.id));
+      playBatterRun(); nextBatter();
     }
   }
 
@@ -1776,7 +1835,7 @@ function resetField(){
   ball.classList.add('hidden'); ball.classList.remove('spinning');
   ball.style.transition='none'; ball.style.top='55%'; ball.style.left='50%';
   const batter=document.getElementById('batter');
-  batter.classList.remove('swing'); batter.src=SPRITES.batterIdle;
+  batter.classList.remove('swing','running'); batter.src=SPRITES.batterIdle;
   const pitcher=document.getElementById('pitcher');
   pitcher.classList.remove('release','windup'); pitcher.src=SPRITES.pitcherIdle;
 }
