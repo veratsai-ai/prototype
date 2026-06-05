@@ -1,0 +1,2209 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>開轟逆轉勝</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&family=Barlow+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#d4a04a;--gold-b:#f0c060;
+  --danger:#c43a3a;--success:#4ac457;--blue:#4a80d4;
+  --dim:#686868;
+  --fd:'Oswald','Impact',system-ui,sans-serif;
+  --fb:'Barlow Condensed','Segoe UI',system-ui,sans-serif;
+  --glow-g:0 0 14px rgba(212,160,74,.52),0 0 30px rgba(212,160,74,.18);
+  --glow-g2:0 0 6px rgba(212,160,74,.5);
+  --glow-r:0 0 14px rgba(196,58,58,.65);
+  --panel-h:75px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);background:#111;color:#fff;user-select:none}
+#game{
+  position:absolute;width:460px;height:820px;
+  top:50%;left:50%;transform-origin:center center;transform:translate(-50%,-50%);
+  overflow:hidden;background:#000;box-shadow:0 0 80px rgba(0,0,0,.95);
+}
+
+/* FIELD */
+#field{
+  position:absolute;top:0;left:0;right:0;bottom:var(--panel-h);overflow:hidden;
+  background-image:url('assets/backgrounds/field-night.png');
+  background-size:cover;background-position:center;background-repeat:no-repeat;
+  background-color:#0a1428;
+}
+
+/* ZONES */
+.zones{position:absolute;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity .3s}
+.zones.debug{opacity:.85}
+.zone{position:absolute;border:1px dashed rgba(255,255,255,.4);font-size:9px;color:rgba(255,255,255,.95);display:flex;align-items:center;justify-content:center;text-align:center;border-radius:4px;flex-direction:column;line-height:1.3;padding:1px}
+.zone.jp{border:1px solid rgba(255,200,40,.75);color:rgba(255,225,100,1);z-index:1}
+.zone small{font-size:7.5px;opacity:.85}
+
+/* JP zones (常態顯示) */
+.zone[data-id="hit_scoreboard"]  {top:8%;  left:29%;width:42%;height:9%; background:rgba(255,110,30,.44)}
+.zone[data-id="hit_billboard_a"] {top:8%;  left:1%; width:22%;height:9%; background:rgba(255,195,40,.60)}
+.zone[data-id="hit_billboard_b"] {top:8%;  left:77%;width:22%;height:9%; background:rgba(255,165,40,.60)}
+/* HR 三區 */
+.zone[data-id="hr_center"]    {top:10%; left:28%;width:44%;height:12%;background:rgba(212,160,74,.38)}
+.zone[data-id="hr_left"]      {top:16%; left:1%; width:26%;height:12%;background:rgba(212,160,74,.30)}
+.zone[data-id="hr_right"]     {top:16%; left:73%;width:26%;height:12%;background:rgba(212,160,74,.30)}
+/* 安打落點 */
+.zone[data-id="hit_left"]     {top:31%; left:1%; width:30%;height:13%;background:rgba(80,200,100,.30)}
+.zone[data-id="hit_right"]    {top:31%; left:69%;width:30%;height:13%;background:rgba(80,200,100,.30)}
+/* 出局 */
+.zone[data-id="fly_out"]      {top:46%; left:22%;width:56%;height:11%;background:rgba(130,130,130,.30)}
+.zone[data-id="ground_out"]   {top:59%; left:18%;width:64%;height:12%;background:rgba(130,130,130,.30)}
+/* 界外 */
+.zone[data-id="foul_left"]    {top:68%; left:0; width:17%;height:13%;background:rgba(80,80,80,.40)}
+.zone[data-id="foul_right"]   {top:68%; left:83%;width:17%;height:13%;background:rgba(80,80,80,.40)}
+.zone[data-id="behind_batter"]{bottom:0;left:20%;width:60%;height:9%; background:rgba(60,60,60,.40)}
+
+/* CHARACTERS */
+.pitcher-img{
+  position:absolute;top:55%;left:50%;width:24%;height:auto;
+  transform:translate(-50%,-50%);z-index:5;pointer-events:none;
+  filter:drop-shadow(0 5px 10px rgba(0,0,0,.75));transition:transform .35s ease-out;
+}
+.pitcher-img.windup {transform:translate(-50%,-50%) scale(1.1) translateY(-5px)}
+.pitcher-img.release{transform:translate(-50%,-50%) scale(.92) translateY(5px)}
+.batter-img{
+  position:absolute;bottom:4%;left:34%;width:38%;height:auto;
+  transform:translateX(-50%);z-index:8;pointer-events:none;
+  filter:drop-shadow(0 7px 14px rgba(0,0,0,.85));
+  transform-origin:bottom center;transition:transform .15s ease-out;
+}
+.batter-img.swing{transform:translateX(-50%) rotate(-10deg) scale(1.05)}
+
+/* BALL */
+.ball{
+  position:absolute;width:20px;height:20px;
+  background-image:url('assets/ui/ball.png');
+  background-size:contain;background-repeat:no-repeat;background-position:center;
+  filter:drop-shadow(0 0 5px rgba(255,255,255,.7));z-index:45;pointer-events:none;
+}
+.ball.hidden{display:none}
+.ball.spinning{animation:bSpin .45s linear infinite}
+@keyframes bSpin{to{transform:rotate(360deg)}}
+.ball.hr-ball{filter:drop-shadow(0 0 8px rgba(255,220,60,1)) drop-shadow(0 0 16px rgba(255,160,0,.7))}
+.trail{position:absolute;width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.6);pointer-events:none;z-index:44;animation:tFade .5s ease-out forwards}
+.trail.hr-trail{background:rgba(255,210,60,.85)}
+@keyframes tFade{from{opacity:.8;transform:scale(1)}to{opacity:0;transform:scale(.15)}}
+
+/* TOPBAR */
+#topbar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;z-index:20;pointer-events:none}
+.balance{
+  background:linear-gradient(135deg,rgba(16,10,2,.94),rgba(36,24,6,.94));
+  border:1.5px solid var(--gold);border-radius:22px;padding:5px 16px;
+  font-family:var(--fd);font-size:20px;font-weight:700;letter-spacing:.04em;color:var(--gold-b);
+  box-shadow:var(--glow-g);pointer-events:auto;
+}
+.coin-ic{
+  display:inline-block;width:16px;height:16px;
+  background-image:url('assets/ui/coin.png');background-size:contain;background-repeat:no-repeat;
+  vertical-align:middle;margin-right:6px;margin-top:-2px;
+}
+.title{position:absolute;top:13px;left:50%;transform:translateX(-50%);font-family:var(--fd);font-size:14px;font-weight:600;letter-spacing:.28em;color:var(--gold);text-shadow:0 0 12px rgba(212,160,74,.5);z-index:21;pointer-events:none}
+.ui-btns{display:flex;gap:5px}
+.icon-btn{background:rgba(16,10,2,.9);border:1px solid #3a3a3a;border-radius:12px;padding:4px 10px;font-size:11px;color:var(--dim);cursor:pointer;pointer-events:auto;transition:all .15s;font-family:var(--fb)}
+.icon-btn:hover,.icon-btn.on{border-color:var(--gold);color:var(--gold)}
+
+/* RESULT BANNER */
+.result-banner{
+  position:absolute;top:35%;left:50%;
+  transform:translate(-50%,-50%) scale(.5);
+  background:linear-gradient(145deg,rgba(5,3,0,.94),rgba(20,12,2,.94));
+  border:2px solid var(--gold);border-radius:12px;padding:18px 36px;
+  font-family:var(--fd);text-align:center;z-index:30;opacity:0;pointer-events:none;
+  box-shadow:var(--glow-g),inset 0 0 30px rgba(212,160,74,.06);min-width:230px;
+  overflow:visible;
+}
+.result-banner.show{animation:rPop 1.8s ease-out forwards}
+@keyframes rPop{
+  0%  {opacity:0;transform:translate(-50%,-50%) scale(.35)}
+  14% {opacity:1;transform:translate(-50%,-50%) scale(1.14)}
+  24% {transform:translate(-50%,-50%) scale(.98)}
+  30% {transform:translate(-50%,-50%) scale(1)}
+  84% {opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(.94)}
+}
+.result-banner .label{font-size:18px;letter-spacing:.12em;color:rgba(255,255,255,.88);margin-bottom:6px;font-weight:600}
+.result-banner .payout{font-size:36px;font-weight:700;letter-spacing:.04em;color:var(--gold-b);text-shadow:0 0 14px rgba(240,192,96,.55)}
+.result-banner.lose{border-color:#333;box-shadow:0 0 16px rgba(0,0,0,.7)}
+.result-banner.lose .payout{color:#666;font-size:22px}
+.result-banner.jackpot{border-color:var(--danger);box-shadow:var(--glow-r),inset 0 0 30px rgba(244,100,100,.08);animation:rPopJP 2.5s ease-out forwards}
+.result-banner.jackpot .payout{color:#ffec6e;text-shadow:0 0 20px #ffec6e,0 0 40px var(--gold);font-size:42px}
+@keyframes rPopJP{
+  0%  {opacity:0;transform:translate(-50%,-50%) scale(.28) rotate(-8deg)}
+  18% {opacity:1;transform:translate(-50%,-50%) scale(1.32) rotate(2deg)}
+  30% {transform:translate(-50%,-50%) scale(.97) rotate(-1deg)}
+  42% {transform:translate(-50%,-50%) scale(1.04) rotate(.5deg)}
+  84% {opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(.94)}
+}
+
+/* === Banner 放射光（僅 JP） === */
+.result-banner.jackpot::before{content:'';position:absolute;inset:-44px;border-radius:50%;background:conic-gradient(transparent 0deg,rgba(244,100,100,.22) 10deg,transparent 20deg,rgba(255,220,60,.16) 30deg,transparent 40deg,rgba(244,100,100,.22) 50deg,transparent 60deg,rgba(255,220,60,.16) 70deg,transparent 80deg,rgba(244,100,100,.22) 90deg,transparent 100deg,rgba(255,220,60,.16) 110deg,transparent 120deg,rgba(244,100,100,.22) 130deg,transparent 140deg,rgba(255,220,60,.16) 150deg,transparent 160deg,rgba(244,100,100,.22) 170deg,transparent 180deg,rgba(255,220,60,.16) 190deg,transparent 200deg,rgba(244,100,100,.22) 210deg,transparent 220deg,rgba(255,220,60,.16) 230deg,transparent 240deg,rgba(244,100,100,.22) 250deg,transparent 260deg,rgba(255,220,60,.16) 270deg,transparent 280deg,rgba(244,100,100,.22) 290deg,transparent 300deg,rgba(255,220,60,.16) 310deg,transparent 320deg,rgba(244,100,100,.22) 330deg,transparent 340deg,rgba(255,220,60,.16) 350deg,transparent 360deg);animation:rayRotate 3s linear infinite;z-index:-1;pointer-events:none}
+@keyframes rayRotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* BET PANEL */
+#betpanel{
+  position:absolute;bottom:0;left:0;right:0;height:var(--panel-h);
+  display:flex;align-items:center;gap:6px;padding:0 10px;
+  background:linear-gradient(180deg,rgba(0,0,0,.7) 0%,rgba(0,0,0,.97) 100%);
+  z-index:20;border-top:1px solid rgba(255,255,255,.06);
+}
+.bp-change-btn{
+  background:linear-gradient(165deg,rgba(52,38,14,.95),rgba(30,20,6,.95));
+  border:1.5px solid #7a5816;border-radius:8px;padding:8px 9px;
+  font-family:var(--fb);font-size:12px;font-weight:700;color:#a87828;
+  cursor:pointer;white-space:nowrap;transition:all .14s;flex-shrink:0;
+}
+.bp-change-btn:hover{border-color:var(--gold-b);color:#fff}
+.bp-info-block{display:flex;flex-direction:column;align-items:center;flex:1;min-width:0}
+.bp-info-label{font-size:10px;color:var(--dim);font-family:var(--fb);letter-spacing:.05em}
+.bp-info-value{font-family:var(--fd);font-size:18px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.bp-info-value.gold{color:var(--gold-b)}
+.bp-speed-btn{
+  background:rgba(255,255,255,.06);border:1px solid #3a3a3a;border-radius:6px;
+  padding:8px 8px;font-family:var(--fd);font-size:13px;font-weight:700;
+  color:#888;cursor:pointer;transition:all .12s;flex-shrink:0;white-space:nowrap;
+}
+.bp-speed-btn:hover{border-color:var(--gold);color:var(--gold)}
+.bp-pitch-btn{
+  background:linear-gradient(165deg,#c43a3a,#8c1c1c);
+  border:none;border-radius:10px;padding:14px 16px;
+  font-family:var(--fd);font-size:18px;font-weight:900;color:#fff;
+  cursor:pointer;letter-spacing:.08em;flex-shrink:0;
+  transition:all .1s;user-select:none;-webkit-user-select:none;
+  box-shadow:0 4px 14px rgba(196,58,58,.45);
+}
+.bp-pitch-btn:active{transform:scale(.96)}
+.bp-pitch-btn.auto-active{background:linear-gradient(165deg,#1a5cbf,#0e3a80);box-shadow:0 0 14px rgba(74,128,212,.6)}
+.bp-pitch-btn.disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
+
+/* BET DIALOG */
+.bet-dialog-overlay{
+  position:absolute;inset:0;background:rgba(0,0,0,.65);
+  z-index:50;display:flex;align-items:flex-end;justify-content:center;padding-bottom:20px;
+}
+.bet-dialog{
+  background:linear-gradient(150deg,rgba(6,4,1,.98),rgba(14,9,2,.98));
+  border:1.5px solid rgba(212,160,74,.4);border-radius:16px 16px 12px 12px;
+  padding:16px;width:90%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.8);
+}
+.bet-dialog-title{font-family:var(--fd);font-size:15px;color:var(--gold);text-align:center;margin-bottom:14px;letter-spacing:.1em}
+.bet-dialog-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.bet-option{
+  background:rgba(255,255,255,.04);border:1.5px solid #2a2a2a;border-radius:8px;
+  padding:12px 4px;font-family:var(--fd);font-size:14px;font-weight:700;
+  color:rgba(255,255,255,.7);cursor:pointer;text-align:center;transition:all .12s;
+}
+.bet-option:hover{border-color:var(--gold);color:var(--gold)}
+.bet-option.selected{background:linear-gradient(165deg,#c87c18,#7e4c08);border-color:var(--gold-b);color:#fff;box-shadow:var(--glow-g)}
+.bet-dialog-close{
+  width:100%;background:transparent;border:1px solid #2a2a2a;border-radius:8px;
+  padding:10px;font-family:var(--fb);font-size:13px;color:var(--dim);cursor:pointer;
+}
+.bet-dialog-close:hover{color:#fff}
+.bet-dialog-desc{font-family:var(--fb);font-size:10px;color:#555;text-align:center;margin-bottom:10px;line-height:1.5}
+.bp-change-btn:disabled{opacity:.4;cursor:not-allowed;border-color:#333;color:#444}
+.pred-bet-change:disabled{opacity:.4;cursor:not-allowed}
+
+/* PREDICT BET HINT */
+.pred-bet-hint{font-family:var(--fb);font-size:12px;color:var(--dim);text-align:center;margin-bottom:4px}
+.pred-bet-hint span{color:var(--gold);font-weight:700}
+.pred-bet-change{background:transparent;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px;font-size:11px;color:var(--dim);cursor:pointer;margin-left:6px}
+.pred-bet-change:hover{color:#fff}
+
+/* DELTA */
+.delta{position:absolute;font-family:var(--fd);font-size:28px;font-weight:700;z-index:25;pointer-events:none;animation:dFloat 1.5s ease-out forwards}
+.delta.gain{color:var(--gold-b);text-shadow:0 0 12px var(--gold)}
+.delta.loss{color:#ff6060;text-shadow:0 0 8px rgba(255,80,80,.5)}
+@keyframes dFloat{0%{opacity:0;transform:translateY(0) scale(.75)}18%{opacity:1;transform:translateY(-8px) scale(1.12)}100%{opacity:0;transform:translateY(-52px) scale(.9)}}
+
+/* BROKE MODAL */
+.broke-modal{position:absolute;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:50;flex-direction:column;gap:18px}
+.broke-modal.show{display:flex}
+.broke-modal h2{font-family:var(--fd);font-size:40px;font-weight:700;color:var(--danger);letter-spacing:.15em;text-shadow:var(--glow-r)}
+.broke-modal p{color:#777;font-size:14px;font-family:var(--fb)}
+.broke-modal button{background:linear-gradient(165deg,#f09210,#9c5806);border:none;border-radius:26px;padding:13px 34px;font-family:var(--fd);font-size:18px;font-weight:700;letter-spacing:.1em;color:#fff;cursor:pointer;box-shadow:0 4px 14px rgba(200,120,0,.5)}
+
+/* COUNT BAR */
+.count-bar{
+  position:absolute;bottom:8px;left:8px;z-index:20;
+  display:flex;align-items:center;gap:7px;
+  background:rgba(0,0,0,.80);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:7px;padding:6px 9px 6px 8px;
+  box-shadow:0 2px 10px rgba(0,0,0,.65);
+}
+.bso-stack{display:flex;flex-direction:column;gap:4px}
+.bso-row{display:flex;align-items:center;gap:5px}
+.bso-lbl{font-family:var(--fb);font-size:9px;font-weight:700;color:rgba(255,255,255,.45);width:9px;text-align:center}
+.bso-dots{display:flex;gap:3px}
+.bso-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);transition:background .1s,box-shadow .1s}
+.bso-dot.on-b{background:#4caf50;border-color:#66bb6a;box-shadow:0 0 5px rgba(76,175,80,.75)}
+.bso-dot.on-s{background:#ffb030;border-color:#ffc040;box-shadow:0 0 5px rgba(255,170,40,.75)}
+.bso-dot.on-o{background:#f44336;border-color:#ef5350;box-shadow:0 0 5px rgba(244,67,54,.75)}
+.bso-divider{width:1px;background:rgba(255,255,255,.12);align-self:stretch;margin:0 1px}
+.bso-score-block{display:flex;flex-direction:column;gap:2px;align-items:center}
+.bso-score-row{display:flex;align-items:center;gap:3px}
+.bso-score-lbl{font-family:var(--fb);font-size:8px;color:rgba(255,255,255,.4);width:12px}
+.bso-score-val{font-family:var(--fd);font-size:14px;color:#888;min-width:14px;text-align:center}
+.bso-score-val.home{color:var(--gold-b)}
+.bso-pitch-info{display:flex;flex-direction:column;align-items:center}
+.bso-pitch-num{font-family:var(--fd);font-size:13px;color:#666}
+.bso-pitch-lbl{font-size:8px;color:#444;font-family:var(--fb)}
+
+/* BASES */
+.bases-display{position:absolute;bottom:16px;right:6%;z-index:15;pointer-events:none}
+.base-diamond{position:relative;width:150px;height:105px}
+.base{position:absolute;width:18px;height:18px;border:2px solid rgba(255,255,255,.18);transform:rotate(45deg);background:rgba(255,255,255,.04);transition:all .22s}
+.base.occupied{background:var(--gold);border-color:var(--gold-b);box-shadow:0 0 10px rgba(212,160,74,.75)}
+.base-second{top:2px;left:50%;transform:translateX(-50%) rotate(45deg)}
+.base-first {top:50%;right:2px;transform:translateY(-50%) rotate(45deg)}
+.base-third {top:50%;left:2px;transform:translateY(-50%) rotate(45deg)}
+.base-home  {bottom:2px;left:50%;transform:translateX(-50%) rotate(45deg);border-color:#252525}
+
+/* PREDICT PANEL */
+.predict-panel{
+  position:absolute;top:48px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(150deg,rgba(5,3,0,.96),rgba(12,8,1,.96));
+  border:1.5px solid rgba(212,160,74,.5);border-radius:14px;
+  padding:10px 12px 8px;z-index:25;width:91%;max-width:368px;
+  box-shadow:0 8px 32px rgba(0,0,0,.7),var(--glow-g);
+}
+.predict-scoreboard{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:7px;padding:5px 10px 6px;background:rgba(255,255,255,.02);border:1px solid rgba(212,160,74,.14);border-radius:8px}
+.psb-team{display:flex;flex-direction:column;align-items:center;gap:2px}
+.psb-label{font-family:var(--fb);font-size:9px;font-weight:600;color:#484848;letter-spacing:.18em;text-transform:uppercase}
+.psb-num{font-family:var(--fd);font-size:30px;font-weight:700;color:var(--gold-b);line-height:1;text-shadow:0 0 14px rgba(240,192,96,.45)}
+.psb-num.away{color:#666}
+.psb-sep{font-family:var(--fd);font-size:16px;font-weight:700;color:#2e2e2e;margin-top:8px;letter-spacing:.06em}
+.predict-title{font-family:var(--fb);font-size:9px;font-weight:700;color:rgba(212,160,74,.55);text-align:center;margin-bottom:6px;letter-spacing:.32em;text-transform:uppercase}
+.predict-section-label{font-family:var(--fb);font-size:8.5px;font-weight:700;color:rgba(212,160,74,.82);letter-spacing:.16em;text-transform:uppercase;margin:6px 0 3px;padding:2px 0 2px 7px;border-left:2px solid rgba(212,160,74,.5);background:linear-gradient(90deg,rgba(212,160,74,.06),transparent);border-radius:0 3px 3px 0}
+.predict-options{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:2px}
+.predict-options.two-col{grid-template-columns:repeat(2,1fr)}
+.predict-options.five-col{grid-template-columns:repeat(5,1fr)}
+.predict-btn{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;color:rgba(255,255,255,.4);font-family:var(--fb);font-size:11px;font-weight:500;padding:6px 3px;cursor:pointer;transition:all .15s;text-align:center;line-height:1.2}
+.predict-btn:hover{background:rgba(212,160,74,.12);border-color:rgba(212,160,74,.45);color:rgba(212,160,74,.95)}
+.predict-btn.selected{background:linear-gradient(155deg,rgba(74,196,87,.28),rgba(74,196,87,.12));border-color:rgba(74,196,87,.7);color:#80ea84;box-shadow:0 0 8px rgba(74,196,87,.3),inset 0 0 6px rgba(74,196,87,.08);font-weight:700}
+.predict-btn small{display:block;font-size:9px;color:rgba(212,160,74,.72);margin-top:1px}
+.predict-btn.selected small{color:rgba(255,255,255,.85)}
+.pred-cost-hint{font-family:var(--fb);font-size:11px;color:var(--dim);text-align:center;margin-bottom:4px;min-height:15px}
+.pred-cost-hint.has-cost{color:var(--gold)}
+.pred-countdown{font-family:var(--fd);font-size:11px;color:var(--gold);text-align:center;margin-bottom:4px;letter-spacing:.08em}
+
+/* Pred action buttons */
+.pred-actions{display:flex;gap:5px;margin:6px 0 4px}
+.pred-action-btn{
+  flex:1;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:7px 4px;font-family:var(--fb);font-size:11px;
+  font-weight:600;color:rgba(255,255,255,.35);cursor:pointer;transition:all .12s;text-align:center;
+}
+.pred-action-btn:hover{background:rgba(212,160,74,.1);border-color:rgba(212,160,74,.4);color:rgba(212,160,74,.9)}
+
+.predict-confirm{width:100%;background:linear-gradient(165deg,#d48020,#8c4808);border:none;border-radius:9px;color:#fff;font-family:var(--fd);font-size:14px;font-weight:700;letter-spacing:.1em;padding:9px;cursor:pointer;margin-top:5px;box-shadow:0 4px 14px rgba(200,120,0,.45),inset 0 1px 0 rgba(255,255,255,.12);transition:all .14s}
+.predict-confirm:not(:disabled):hover{box-shadow:0 5px 20px rgba(200,120,0,.65),inset 0 1px 0 rgba(255,255,255,.18);transform:translateY(-1px)}
+.predict-confirm:disabled{opacity:.3;cursor:not-allowed;background:linear-gradient(165deg,#5a5a5a,#3a3a3a);box-shadow:none}
+
+/* SETTLE OVERLAY */
+.settle-overlay{position:absolute;inset:0;z-index:35;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.86)}
+.settle-card{width:88%;max-width:340px;background:linear-gradient(150deg,rgba(6,4,1,.99),rgba(12,7,1,.99));border:1.5px solid rgba(212,160,74,.55);border-radius:16px;padding:18px 16px 16px;box-shadow:0 12px 40px rgba(0,0,0,.85),var(--glow-g),inset 0 0 40px rgba(0,0,0,.3)}
+.settle-title{font-family:var(--fb);font-size:10px;font-weight:700;color:rgba(212,160,74,.6);letter-spacing:.36em;text-align:center;text-transform:uppercase;margin-bottom:10px}
+.settle-stats{display:flex;justify-content:center;gap:12px;font-family:var(--fb);font-size:11px;color:#484848;margin-bottom:12px;padding:7px 8px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:8px}
+.settle-stats strong{color:#aaa;font-weight:700;margin-left:3px}
+.settle-rows{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.settle-row{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;font-family:var(--fb);font-size:11px}
+.settle-row.hit{background:linear-gradient(130deg,rgba(74,196,87,.16),rgba(74,196,87,.06));border:1px solid rgba(74,196,87,.4);box-shadow:0 0 12px rgba(74,196,87,.08),inset 0 0 10px rgba(74,196,87,.04)}
+.settle-empty{font-family:var(--fb);font-size:11px;color:#3a3a3a;text-align:center;padding:14px 0;letter-spacing:.06em}
+.stl-icon{font-size:15px;flex:0 0 20px;text-align:center;line-height:1;color:#5cdd6a;text-shadow:0 0 8px rgba(74,196,87,.6)}
+.stl-label{flex:1;color:#999;font-size:10px;letter-spacing:.04em;line-height:1.5}
+.stl-label small{color:#666}
+.stl-amt{font-family:var(--fd);font-size:16px;font-weight:700;flex:0 0 auto;min-width:52px;text-align:right}
+.stl-amt.gain{color:var(--gold-b);text-shadow:0 0 10px rgba(240,192,96,.45)}
+.settle-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(212,160,74,.3),transparent);margin:10px 0}
+.settle-total-row{display:flex;justify-content:space-between;align-items:center;font-family:var(--fb);font-size:11px;color:#555;padding:0 4px;margin-bottom:14px;letter-spacing:.1em}
+.settle-total-val{font-family:var(--fd);font-size:30px;font-weight:700;color:var(--gold-b);text-shadow:var(--glow-g2)}
+.settle-next{width:100%;background:linear-gradient(165deg,#d48020,#8c4808);border:none;border-radius:10px;color:#fff;font-family:var(--fd);font-size:14px;font-weight:700;letter-spacing:.1em;padding:11px;cursor:pointer;box-shadow:0 4px 14px rgba(200,120,0,.45),inset 0 1px 0 rgba(255,255,255,.12);transition:all .14s}
+.settle-next:hover{box-shadow:0 5px 20px rgba(200,120,0,.65);transform:translateY(-1px)}
+
+/* PRED SUMMARY TAGS */
+.pred-summary{position:absolute;top:20%;left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;gap:4px;justify-content:center;z-index:20;pointer-events:none;max-width:92%}
+.pred-tag{font-family:var(--fb);font-size:10px;font-weight:600;letter-spacing:.05em;padding:3px 8px;border-radius:20px;background:rgba(0,0,0,.72)}
+.pred-tag.pred-active{color:#6de87a;border:1px solid rgba(74,196,87,.4)}
+
+/* HR EFFECTS */
+.hr-shock{position:absolute;border-radius:50%;pointer-events:none;z-index:46;transform:translate(-50%,-50%);animation:hrShock .55s ease-out forwards}
+@keyframes hrShock{0%{width:22px;height:22px;opacity:1;border:3px solid rgba(255,220,60,1);box-shadow:0 0 8px rgba(255,200,0,.8)}100%{width:200px;height:200px;opacity:0;border:2px solid rgba(255,160,0,.2);box-shadow:none}}
+.hr-flash{position:absolute;inset:0;z-index:46;pointer-events:none;animation:hrFlash .4s ease-out forwards}
+@keyframes hrFlash{0%{opacity:1}100%{opacity:0}}
+#field.hr-shake{animation:hrShake .42s ease-out}
+@keyframes hrShake{0%,100%{transform:none}16%{transform:translate(8px,3px)}33%{transform:translate(-6px,-5px)}50%{transform:translate(5px,-2px)}66%{transform:translate(-4px,4px)}82%{transform:translate(3px,-2px)}}
+
+/* DEBUG PANEL */
+.debug-panel{position:absolute;right:0;top:50px;bottom:var(--panel-h);width:158px;z-index:60;overflow-y:auto;background:rgba(2,4,10,.96);border-left:1px solid #1a2a1a;font-family:'Courier New',monospace;font-size:10px;color:#6a8;padding:8px 7px}
+.dbg-title{font-size:11px;font-weight:700;color:#4cf;letter-spacing:.18em;margin-bottom:8px;text-align:center}
+.dbg-group{margin-bottom:6px}
+.dbg-row{display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid #0e1a0e}
+.dbg-row span:last-child{color:#cec;font-weight:700;text-align:right;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+.dbk{color:#486;font-size:9px;letter-spacing:.06em;margin-bottom:3px;text-transform:uppercase}
+.dbg-sep{height:1px;background:#0e1a0e;margin:6px 0}
+.dbg-sel{width:100%;background:#050d05;border:1px solid #1a2a1a;color:#8b8;font-size:9px;padding:4px 3px;border-radius:3px;margin-top:3px;outline:none}
+.dbg-btn{width:100%;background:#050d05;border:1px solid #1a2a1a;color:#4cf;font-size:10px;padding:5px 6px;border-radius:4px;cursor:pointer;margin-bottom:3px;text-align:left;font-family:'Courier New',monospace}
+.dbg-btn:hover{background:#0a1e2a;border-color:#4cf}
+.dbg-btn:last-child{margin-bottom:0}
+.dbg-inline{display:flex;gap:4px;align-items:center;margin-top:3px}
+.dbg-input{flex:1;background:#050d05;border:1px solid #1a2a1a;color:#8b8;font-size:10px;padding:4px;border-radius:3px;font-family:'Courier New',monospace;min-width:0}
+.dbg-btn-sm{background:#050d05;border:1px solid #1a2a1a;color:#4cf;font-size:10px;padding:4px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;font-family:'Courier New',monospace}
+.dbg-btn-sm:hover{background:#0a1e2a}
+
+.hidden{display:none !important}
+
+/* HELP OVERLAY */
+.help-overlay{position:absolute;inset:0;z-index:55;background:rgba(4,2,0,.98);overflow-y:auto;display:flex;flex-direction:column}
+.help-header{position:sticky;top:0;z-index:2;background:rgba(4,2,0,.97);border-bottom:1px solid rgba(212,160,74,.3);padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+.help-header-title{font-family:var(--fd);font-size:17px;font-weight:700;color:var(--gold);letter-spacing:.2em}
+.help-close{background:rgba(255,255,255,.06);border:1px solid #3a3a3a;border-radius:10px;padding:5px 14px;font-family:var(--fd);font-size:13px;color:var(--dim);cursor:pointer;transition:all .15s}
+.help-close:hover{border-color:var(--gold);color:var(--gold)}
+.help-body{padding:12px 14px 28px;display:flex;flex-direction:column;gap:14px}
+.help-sec{background:rgba(255,255,255,.02);border:1px solid rgba(212,160,74,.15);border-radius:10px;overflow:hidden}
+.help-sec-title{font-family:var(--fd);font-size:12px;font-weight:700;color:var(--gold);letter-spacing:.2em;padding:7px 11px;background:rgba(212,160,74,.07);border-bottom:1px solid rgba(212,160,74,.15)}
+.help-sec-body{padding:9px 11px;font-family:var(--fb);font-size:12px;color:rgba(255,255,255,.72);line-height:1.65}
+.help-sec-body li{margin-bottom:3px}
+.help-sec-body ul{padding-left:14px}
+.ht{width:100%;border-collapse:collapse;font-family:var(--fb);font-size:11px;margin-top:2px}
+.ht th{background:rgba(212,160,74,.1);color:var(--gold);font-weight:700;padding:5px 7px;text-align:left;letter-spacing:.05em;border-bottom:1px solid rgba(212,160,74,.2)}
+.ht td{padding:5px 7px;color:rgba(255,255,255,.65);border-bottom:1px solid rgba(255,255,255,.04)}
+.ht tr:last-child td{border-bottom:none}
+.ht .pay td:last-child{color:var(--gold-b);font-family:var(--fd);font-weight:700;font-size:12px}
+.ht .nil td{color:#3a3a3a}
+.help-note{font-family:var(--fb);font-size:10px;color:#4a4a4a;margin-top:6px;text-align:center}
+
+/* === 跑壘指標 === */
+.base-runner-arrow{position:absolute;font-size:14px;color:var(--gold);opacity:0;pointer-events:none;z-index:30;animation:arrowPulse .6s ease-in-out forwards;text-shadow:0 0 8px rgba(212,160,74,1)}
+@keyframes arrowPulse{0%{opacity:0;transform:scale(.6)}30%{opacity:1;transform:scale(1.3)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.8)}}
+.arrow-to-1{bottom:28%;right:-8px}
+.arrow-to-2{top:-10px;left:50%;transform:translateX(-50%)}
+.arrow-to-3{bottom:28%;left:-8px}
+.arrow-to-home{bottom:-10px;left:50%;transform:translateX(-50%)}
+.score-popup{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-family:var(--fd);font-size:22px;font-weight:900;color:var(--gold-b);text-shadow:0 0 14px rgba(240,192,96,.9),0 2px 4px rgba(0,0,0,.8);pointer-events:none;z-index:35;animation:scoreFloat 1.4s ease-out forwards}
+@keyframes scoreFloat{0%{opacity:0;transform:translateX(-50%) translateY(0) scale(.7)}20%{opacity:1;transform:translateX(-50%) translateY(-10px) scale(1.2)}60%{opacity:1;transform:translateX(-50%) translateY(-40px) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-80px) scale(.85)}}
+@keyframes basePulse{0%,100%{box-shadow:0 0 10px rgba(212,160,74,.75)}50%{box-shadow:0 0 28px rgba(255,220,60,1),0 0 50px rgba(212,160,74,.5)}}
+.base.bases-loaded{animation:basePulse .5s ease-in-out 3}
+/* === 打者跑壘 === */
+@keyframes batterRunRight{0%{transform:translateX(-50%);opacity:1}80%{opacity:1}100%{transform:translateX(calc(-50% + 130px));opacity:0}}
+.batter-img.running{animation:batterRunRight .8s ease-in forwards !important}
+
+/* === 得分跑者 === */
+.score-runner{position:absolute;bottom:18%;left:-80px;width:55px;height:80px;background-image:url('assets/portrait/batter_idle.png');background-size:contain;background-repeat:no-repeat;background-position:center;opacity:0;pointer-events:none;z-index:12;transform:scaleX(-1)}
+.score-runner.run-in{animation:runnerToHome 1.1s ease-in-out forwards}
+@keyframes runnerToHome{0%{left:-80px;bottom:22%;opacity:0}15%{opacity:1}70%{left:42%;bottom:14%;opacity:1}85%{left:44%;bottom:13%;opacity:1}100%{left:44%;bottom:13%;opacity:0}}
+
+.base.in-transit{background:#fff8a0 !important;border-color:#fff !important;box-shadow:0 0 22px rgba(255,240,80,1),0 0 44px rgba(255,200,40,.7) !important;transform:rotate(45deg) scale(1.22) !important;transition:transform .1s ease-out}
+
+/* === JP 升級倍率飛出 === */
+.jp-mult-popup{position:absolute;top:35%;left:50%;transform:translateX(-50%) scale(.5);font-family:var(--fd);font-size:42px;font-weight:900;pointer-events:none;z-index:50;opacity:0;white-space:nowrap;text-align:center;animation:jpMultFly 2.2s cubic-bezier(.22,.8,.28,1) forwards}
+.jp-mult-popup.mult-1{color:#fff;text-shadow:0 0 20px rgba(255,255,255,.6)}
+.jp-mult-popup.mult-2{color:#a8f0a0;text-shadow:0 0 24px rgba(100,220,100,.8)}
+.jp-mult-popup.mult-3{color:var(--gold-b);text-shadow:0 0 28px rgba(240,192,96,1)}
+.jp-mult-popup.mult-4{color:#f0a050;text-shadow:0 0 32px rgba(255,160,60,1)}
+.jp-mult-popup.mult-5{color:#ff6060;text-shadow:0 0 36px rgba(255,80,80,1),0 0 60px rgba(255,100,60,.5)}
+@keyframes jpMultFly{0%{opacity:0;transform:translateX(-50%) translateY(30px) scale(.4)}15%{opacity:1;transform:translateX(-50%) translateY(-10px) scale(1.3)}35%{opacity:1;transform:translateX(-50%) translateY(-20px) scale(1)}70%{opacity:1;transform:translateX(-50%) translateY(-30px) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-70px) scale(.8)}}
+.jp-mult-popup.big-mult{animation:jpMultFly 2.2s cubic-bezier(.22,.8,.28,1) forwards,jpShake .4s ease-in-out .3s 2}
+@keyframes jpShake{0%,100%{margin-left:0}25%{margin-left:-6px}75%{margin-left:6px}}
+
+/* === 全壘打衝擊波 & 煙火粒子 & JP爆光 === */
+.hr-shockwave{position:absolute;top:50%;left:50%;width:20px;height:20px;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:45;border:3px solid rgba(255,220,60,1);box-shadow:0 0 12px rgba(255,200,0,.8);animation:shockExpand .7s ease-out forwards}
+@keyframes shockExpand{0%{width:20px;height:20px;opacity:1}100%{width:320px;height:320px;opacity:0;border-width:1px}}
+.hr-shockwave.second{animation-delay:.25s;border-color:rgba(255,140,0,.8);opacity:0}
+.spark{position:absolute;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:44;animation:sparkFly var(--dur,.9s) ease-out forwards}
+@keyframes sparkFly{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--tx,0),var(--ty,0)) scale(.3)}}
+.jp-hit-burst{position:absolute;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:48;background:radial-gradient(circle,rgba(255,220,60,1) 0%,rgba(255,140,0,.6) 60%,transparent 100%);animation:jpBurst .6s ease-out forwards}
+@keyframes jpBurst{0%{width:10px;height:10px;opacity:1}100%{width:140px;height:140px;opacity:0}}
+
+/* === JP 碎片 === */
+.shard{position:absolute;width:var(--w,8px);height:var(--h,5px);background:var(--col,#ffd03c);border-radius:2px;pointer-events:none;z-index:49;opacity:1;transform-origin:center;animation:shardFly var(--dur,.8s) ease-out forwards}
+@keyframes shardFly{0%{opacity:1;transform:translate(0,0) rotate(0deg) scale(1)}100%{opacity:0;transform:translate(var(--tx,0),var(--ty,0)) rotate(var(--rot,180deg)) scale(.3)}}
+.neon-shatter{position:absolute;border-radius:50%;pointer-events:none;z-index:47;animation:neonShatter .5s ease-out forwards}
+@keyframes neonShatter{0%{opacity:1;transform:scale(.3)}50%{opacity:.8;transform:scale(1.5)}100%{opacity:0;transform:scale(2.5)}}
+
+/* === JP Dialog === */
+.jp-dialog{position:absolute;inset:0;z-index:62;display:flex;align-items:center;justify-content:center;pointer-events:auto}
+.jp-dialog.hidden{display:none}
+.jp-dialog-bg{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.85) 0%,rgba(0,0,0,.65) 100%);animation:bgFadeIn .3s ease-out}
+@keyframes bgFadeIn{from{opacity:0}to{opacity:1}}
+.jp-dialog-inner{position:relative;z-index:63;text-align:center;padding:32px 40px 28px;border-radius:16px;border:3px solid var(--jp-color,#c070ff);background:linear-gradient(160deg,rgba(10,5,20,.96),rgba(20,10,5,.96));box-shadow:0 0 40px var(--jp-color,#c070ff),0 0 80px rgba(0,0,0,.8),inset 0 0 30px rgba(100,50,150,.1);animation:dialogPop .5s cubic-bezier(.22,.8,.28,1) forwards;min-width:260px;overflow:visible}
+@keyframes dialogPop{0%{opacity:0;transform:scale(.3) rotate(-8deg)}60%{opacity:1;transform:scale(1.08) rotate(2deg)}80%{transform:scale(.97) rotate(-1deg)}100%{transform:scale(1) rotate(0deg)}}
+.jp-dialog-inner::before{content:'';position:absolute;inset:-60px;background:conic-gradient(transparent 0deg,var(--jp-color,#c070ff) 2deg,transparent 4deg,transparent 24deg,var(--jp-color,#c070ff) 26deg,transparent 28deg,transparent 46deg,var(--jp-color,#c070ff) 48deg,transparent 50deg,transparent 70deg,var(--jp-color,#c070ff) 72deg,transparent 74deg,transparent 94deg,var(--jp-color,#c070ff) 96deg,transparent 98deg,transparent 116deg,var(--jp-color,#c070ff) 118deg,transparent 120deg,transparent 140deg,var(--jp-color,#c070ff) 142deg,transparent 144deg,transparent 164deg,var(--jp-color,#c070ff) 166deg,transparent 168deg,transparent 186deg,var(--jp-color,#c070ff) 188deg,transparent 190deg,transparent 210deg,var(--jp-color,#c070ff) 212deg,transparent 214deg,transparent 234deg,var(--jp-color,#c070ff) 236deg,transparent 238deg,transparent 256deg,var(--jp-color,#c070ff) 258deg,transparent 260deg,transparent 280deg,var(--jp-color,#c070ff) 282deg,transparent 284deg,transparent 302deg,var(--jp-color,#c070ff) 304deg,transparent 306deg,transparent 326deg,var(--jp-color,#c070ff) 328deg,transparent 330deg,transparent 350deg,var(--jp-color,#c070ff) 352deg,transparent 354deg,transparent 360deg);opacity:.25;border-radius:50%;z-index:-1;pointer-events:none;animation:rayRotate 4s linear infinite}
+.jp-dialog-title{font-family:var(--fd);font-size:16px;font-weight:600;color:var(--jp-color,#c070ff);letter-spacing:.2em;margin-bottom:8px;text-shadow:0 0 12px var(--jp-color,#c070ff)}
+.jp-dialog-mult{font-family:var(--fd);font-size:52px;font-weight:900;color:#fff;text-shadow:0 0 20px var(--jp-color,#c070ff),0 0 40px rgba(255,255,255,.3);line-height:1;margin-bottom:4px}
+.jp-dialog-mult.no-upgrade{font-size:28px;color:rgba(255,255,255,.5);text-shadow:none}
+.jp-dialog-amount{font-family:var(--fd);font-size:36px;font-weight:700;color:var(--gold-b);text-shadow:0 0 16px rgba(240,192,96,.8);margin-bottom:20px}
+.jp-dialog-close{background:linear-gradient(160deg,var(--jp-color,#c070ff),rgba(100,40,160,.8));border:none;border-radius:10px;padding:10px 36px;font-family:var(--fd);font-size:15px;font-weight:700;color:#fff;cursor:pointer;letter-spacing:.1em;box-shadow:0 0 14px var(--jp-color,#c070ff);transition:transform .1s}
+.jp-dialog-close:active{transform:scale(.95)}
+
+/* === JP 物件（常態顯示） === */
+.jp-objects{position:absolute;inset:0;pointer-events:none;z-index:3}
+#jpObjA{position:absolute;top:8%;left:1%;width:22%;height:9%}
+#jpObjB{position:absolute;top:8%;left:77%;width:22%;height:9%}
+#jpObjS{position:absolute;top:8%;left:29%;width:42%;height:9%}
+.jp-obj{position:absolute;inset:0}
+.jp-obj-screen{position:absolute;inset:0;border-radius:6px;background:rgba(10,5,20,.7);border:2px solid #9040cc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 0 12px rgba(160,60,220,.6),inset 0 0 8px rgba(140,60,200,.2);animation:neonPulse 2.5s ease-in-out infinite}
+.jp-obj-scoreboard .jp-obj-screen{border-color:#4090ff;box-shadow:0 0 14px rgba(60,130,255,.6),inset 0 0 8px rgba(40,100,220,.2);animation:neonPulseBlue 2.5s ease-in-out infinite}
+@keyframes neonPulse{0%,100%{box-shadow:0 0 12px rgba(160,60,220,.6),inset 0 0 8px rgba(140,60,200,.2)}50%{box-shadow:0 0 22px rgba(190,80,255,.9),inset 0 0 14px rgba(180,80,240,.3)}}
+@keyframes neonPulseBlue{0%,100%{box-shadow:0 0 14px rgba(60,130,255,.6),inset 0 0 8px rgba(40,100,220,.2)}50%{box-shadow:0 0 26px rgba(80,160,255,.9),inset 0 0 14px rgba(60,140,255,.3)}}
+.jp-obj-label{font-family:var(--fb);font-size:8px;color:rgba(200,150,255,.8);letter-spacing:.1em}
+.jp-obj-scoreboard .jp-obj-label{color:rgba(120,180,255,.8)}
+.jp-obj-odds{font-family:var(--fd);font-size:13px;font-weight:700;color:#e0b0ff;text-shadow:0 0 8px rgba(180,80,255,.8)}
+.jp-obj-scoreboard .jp-obj-odds{color:#90c8ff;text-shadow:0 0 8px rgba(80,160,255,.8)}
+@keyframes objHitFlash{0%{opacity:1;filter:brightness(1)}20%{opacity:1;filter:brightness(5)}40%{opacity:0}70%{opacity:0}100%{opacity:1;filter:brightness(1)}}
+.jp-obj.hit-flash .jp-obj-screen{animation:objHitFlash .6s ease-out forwards}
+@keyframes objCharge{0%{filter:brightness(1)}25%{filter:brightness(2.5)}50%{filter:brightness(1.6)}75%{filter:brightness(3)}100%{filter:brightness(1)}}
+.jp-obj.charging .jp-obj-screen{animation:objCharge .7s ease-in-out forwards !important}
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="field">
+
+    <!-- JP 物件（常態顯示） -->
+    <div class="jp-objects" id="jpObjects">
+      <div class="jp-obj" id="jpObjA" data-id="hit_billboard_a">
+        <div class="jp-obj-screen">
+          <div class="jp-obj-label">廣告板</div>
+          <div class="jp-obj-odds">×10</div>
+        </div>
+      </div>
+      <div class="jp-obj" id="jpObjB" data-id="hit_billboard_b">
+        <div class="jp-obj-screen">
+          <div class="jp-obj-label">廣告板</div>
+          <div class="jp-obj-odds">×15</div>
+        </div>
+      </div>
+      <div class="jp-obj jp-obj-scoreboard" id="jpObjS" data-id="hit_scoreboard">
+        <div class="jp-obj-screen">
+          <div class="jp-obj-label">計分板</div>
+          <div class="jp-obj-odds">×50</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="zones" id="zones">
+      <div class="zone jp" data-id="hit_scoreboard">計分板 JP<small>基礎×50</small></div>
+      <div class="zone jp" data-id="hit_billboard_a">廣告板A JP<small>基礎×10</small></div>
+      <div class="zone jp" data-id="hit_billboard_b">廣告板B JP<small>基礎×15</small></div>
+      <div class="zone" data-id="hr_center">中HR <b>×8</b></div>
+      <div class="zone" data-id="hr_left">左HR <b>×3.5</b></div>
+      <div class="zone" data-id="hr_right">右HR <b>×3.5</b></div>
+      <div class="zone" data-id="hit_left">左安 <b>×2.5</b></div>
+      <div class="zone" data-id="hit_right">右安 <b>×2.5</b></div>
+      <div class="zone" data-id="fly_out">高飛出局</div>
+      <div class="zone" data-id="ground_out">滾地出局</div>
+      <div class="zone" data-id="foul_left">界外</div>
+      <div class="zone" data-id="foul_right">界外</div>
+      <div class="zone" data-id="behind_batter">好壞球</div>
+    </div>
+
+    <img class="pitcher-img" id="pitcher" src="assets/portrait/pitcher_idle.png" alt="">
+    <img class="batter-img"  id="batter"  src="assets/portrait/batter_idle.png"  alt="">
+    <div class="ball hidden" id="ball"></div>
+
+    <div class="result-banner" id="resultBanner">
+      <div class="label"  id="resultLabel">—</div>
+      <div class="payout" id="resultPayout">—</div>
+    </div>
+
+    <!-- PREDICT PANEL -->
+    <div id="predictPanel" class="predict-panel hidden">
+      <div class="predict-scoreboard">
+        <div class="psb-team">
+          <div class="psb-label">客隊</div>
+          <div class="psb-num away" id="psbAway">2</div>
+        </div>
+        <div class="psb-sep">VS</div>
+        <div class="psb-team">
+          <div class="psb-label">主隊</div>
+          <div class="psb-num" id="psbHome">?</div>
+        </div>
+      </div>
+
+      <div class="predict-title">預測本局賽果</div>
+      <div class="pred-bet-hint">預測注額：<span id="predBetHint">500</span><button onclick="openBetDialog()" class="pred-bet-change">更換</button></div>
+      <div class="pred-cost-hint" id="predCostHint">尚未選擇標的</div>
+      <div class="pred-countdown hidden" id="predCountdown"></div>
+
+      <div class="predict-section-label">勝負</div>
+      <div class="predict-options three-col">
+        <button class="predict-btn" data-group="winloss" data-val="win">主隊勝<small>×1.9</small></button>
+        <button class="predict-btn" data-group="winloss" data-val="lose">主隊敗<small>×1.9</small></button>
+        <button class="predict-btn" data-group="winloss" data-val="draw">和局<small>×12</small></button>
+      </div>
+
+      <div class="predict-section-label">大小分（盤口 <span id="bigSmallLineLabel">8</span>）</div>
+      <div class="predict-options two-col">
+        <button class="predict-btn" data-group="bigsmall" data-val="big">大<small>×1.9</small></button>
+        <button class="predict-btn" data-group="bigsmall" data-val="small">小<small>×1.9</small></button>
+      </div>
+
+      <div class="predict-section-label">勝分差（絕對值）</div>
+      <div class="predict-options five-col">
+        <button class="predict-btn" data-group="margin" data-val="1">贏1<small>×4</small></button>
+        <button class="predict-btn" data-group="margin" data-val="2-3">贏2–3<small>×3</small></button>
+        <button class="predict-btn" data-group="margin" data-val="4-6">贏4–6<small>×5</small></button>
+        <button class="predict-btn" data-group="margin" data-val="7+">贏7+<small>×8</small></button>
+      </div>
+
+      <div class="predict-section-label">安打數</div>
+      <div class="predict-options two-col">
+        <button class="predict-btn" data-group="hits" data-val="over">多 ≥3支<small>×1.6</small></button>
+        <button class="predict-btn" data-group="hits" data-val="under">少 &lt;3支<small>×2</small></button>
+      </div>
+
+      <div class="predict-section-label">得分單雙（主隊）</div>
+      <div class="predict-options two-col">
+        <button class="predict-btn" data-group="oddeven" data-val="odd">單數<small>×2.3</small></button>
+        <button class="predict-btn" data-group="oddeven" data-val="even">雙數<small>×1.4</small></button>
+      </div>
+
+      <div class="predict-section-label">主隊得分（精確）</div>
+      <div class="predict-options five-col">
+        <button class="predict-btn" data-group="exact" data-val="0">0<small>×3</small></button>
+        <button class="predict-btn" data-group="exact" data-val="1">1<small>×3</small></button>
+        <button class="predict-btn" data-group="exact" data-val="2">2<small>×3.5</small></button>
+        <button class="predict-btn" data-group="exact" data-val="3">3<small>×4</small></button>
+        <button class="predict-btn" data-group="exact" data-val="4">4<small>×5</small></button>
+        <button class="predict-btn" data-group="exact" data-val="5">5<small>×6</small></button>
+        <button class="predict-btn" data-group="exact" data-val="6">6<small>×8</small></button>
+        <button class="predict-btn" data-group="exact" data-val="7">7<small>×10</small></button>
+        <button class="predict-btn" data-group="exact" data-val="8">8<small>×15</small></button>
+        <button class="predict-btn" data-group="exact" data-val="9+">9+<small>×12</small></button>
+      </div>
+
+      <div class="pred-actions">
+        <button id="predAllBtn"    class="pred-action-btn">全下</button>
+        <button id="predClearBtn"  class="pred-action-btn">清除</button>
+        <button id="predRepeatBtn" class="pred-action-btn">重複</button>
+      </div>
+
+      <button id="confirmPredictBtn" class="predict-confirm">略過，直接開始 ▶</button>
+    </div>
+
+    <!-- COUNT BAR (BSO + Score) -->
+    <div id="countBar" class="count-bar hidden">
+      <div class="bso-stack">
+        <div class="bso-row">
+          <span class="bso-lbl">B</span>
+          <div class="bso-dots" id="ballDots">
+            <span class="bso-dot"></span><span class="bso-dot"></span><span class="bso-dot"></span><span class="bso-dot"></span>
+          </div>
+        </div>
+        <div class="bso-row">
+          <span class="bso-lbl">S</span>
+          <div class="bso-dots" id="strikeDots">
+            <span class="bso-dot"></span><span class="bso-dot"></span><span class="bso-dot"></span>
+          </div>
+        </div>
+        <div class="bso-row">
+          <span class="bso-lbl">O</span>
+          <div class="bso-dots" id="outDots">
+            <span class="bso-dot"></span><span class="bso-dot"></span><span class="bso-dot"></span>
+          </div>
+        </div>
+      </div>
+      <div class="bso-divider"></div>
+      <div class="bso-score-block">
+        <div class="bso-score-row">
+          <span class="bso-score-lbl">客</span>
+          <span class="bso-score-val" id="awayScoreBar">2</span>
+        </div>
+        <div class="bso-score-row">
+          <span class="bso-score-lbl">主</span>
+          <span class="bso-score-val home" id="liveScore">0</span>
+        </div>
+      </div>
+      <div class="bso-divider"></div>
+      <div class="bso-pitch-info">
+        <span class="bso-pitch-num" id="pitchCountBar">0</span>
+        <span class="bso-pitch-lbl">球</span>
+      </div>
+    </div>
+
+    <div id="basesDisplay" class="bases-display hidden">
+      <div class="base-diamond">
+        <div class="base base-second" id="base2"></div>
+        <div class="base base-first"  id="base1"></div>
+        <div class="base base-third"  id="base3"></div>
+        <div class="base base-home"></div>
+      </div>
+    </div>
+
+    <div id="predSummary" class="pred-summary hidden"></div>
+
+    <!-- SETTLE OVERLAY -->
+    <div id="settleOverlay" class="settle-overlay hidden">
+      <div class="settle-card">
+        <div class="settle-title">本局結算</div>
+        <div class="settle-stats">
+          <span>主隊 <strong id="stlHome">0</strong></span>
+          <span>客隊 <strong id="stlAway">0</strong></span>
+          <span>安打 <strong id="stlHits">0</strong></span>
+          <span>用球 <strong id="stlBalls">0</strong></span>
+        </div>
+        <div class="settle-rows" id="settleRows"></div>
+        <div class="settle-divider"></div>
+        <div class="settle-total-row">
+          <span>本局獲得</span>
+          <span class="settle-total-val" id="stlTotal">+0</span>
+        </div>
+        <button id="settleNextBtn" class="settle-next">繼續 ▶</button>
+      </div>
+    </div>
+
+    <div id="scoreRunner" class="score-runner"></div>
+
+    <!-- JP Dialog -->
+    <div id="jpDialog" class="jp-dialog hidden">
+      <div class="jp-dialog-bg"></div>
+      <div class="jp-dialog-inner">
+        <div class="jp-dialog-title" id="jpDialogTitle">⚡ 廣告板A</div>
+        <div class="jp-dialog-mult" id="jpDialogMult">×3</div>
+        <div class="jp-dialog-amount" id="jpDialogAmount">+0</div>
+        <button class="jp-dialog-close" id="jpDialogClose">領取</button>
+      </div>
+    </div>
+
+  </div><!-- /#field -->
+
+  <div id="topbar">
+    <div class="balance"><span class="coin-ic"></span><span id="balance">1,000,000</span></div>
+    <div class="ui-btns">
+      <div class="icon-btn" id="helpBtn">說明</div>
+      <div class="icon-btn" id="muteBtn">🔊</div>
+      <div class="icon-btn" id="zonesBtn">熱區</div>
+      <div class="icon-btn" id="debugBtn">DBG</div>
+    </div>
+  </div>
+  <div class="title">開轟逆轉勝</div>
+
+  <div id="betpanel">
+    <button id="changeBetBtn" class="bp-change-btn" onclick="openBetDialog()">更換注額</button>
+    <div class="bp-info-block">
+      <span class="bp-info-label">注額</span>
+      <span class="bp-info-value" id="currentBetDisplay">500</span>
+    </div>
+    <div class="bp-info-block">
+      <span class="bp-info-label">贏得</span>
+      <span class="bp-info-value gold" id="inningEarnedDisplay">—</span>
+    </div>
+    <button id="speedBtn" class="bp-speed-btn">1x</button>
+    <button id="pitchBtn" class="bp-pitch-btn disabled">PITCH</button>
+  </div>
+
+  <!-- AUTO Dialog -->
+  <div id="autoDialog" class="bet-dialog-overlay hidden">
+    <div class="bet-dialog">
+      <div class="bet-dialog-title">選擇自動轉數</div>
+      <div class="bet-dialog-desc">投出一球算一轉，局末3秒可調整選項<br>點擊 AUTO 按鈕可立即停止</div>
+      <div class="bet-dialog-grid" id="autoCountGrid"></div>
+      <button id="autoDialogClose" class="bet-dialog-close">取消</button>
+    </div>
+  </div>
+
+  <!-- Bet Dialog (shared for pitch & pred) -->
+  <div id="betDialog" class="bet-dialog-overlay hidden" onclick="closeBetDialogOutside(event)">
+    <div class="bet-dialog">
+      <div class="bet-dialog-title" id="betDialogTitle">選擇注額</div>
+      <div class="bet-dialog-desc">注額同時作為每球投注與預測費用</div>
+      <div class="bet-dialog-grid" id="betDialogGrid"></div>
+      <button class="bet-dialog-close" onclick="closeBetDialog()">取消</button>
+    </div>
+  </div>
+
+  <!-- HELP -->
+  <div class="help-overlay hidden" id="helpOverlay">
+    <div class="help-header">
+      <div class="help-header-title">⚾ 遊戲說明</div>
+      <div class="help-close" id="helpClose">關閉 ✕</div>
+    </div>
+    <div class="help-body">
+      <div class="help-sec">
+        <div class="help-sec-title">① 基本玩法</div>
+        <div class="help-sec-body">
+          <ul>
+            <li>每局開始前可設定預測，費用從餘額扣除（<b>預測注額</b>）。</li>
+            <li>按 <b>PITCH</b> 投球，每球扣除<b>球注</b>（可在打擊中途更換）。</li>
+            <li>命中安打或全壘打立即獲得賠率彩金（以球注計算）。</li>
+            <li>累積 <b>3 次出局</b>後進入局末結算。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="help-sec">
+        <div class="help-sec-title">② 球路賠率</div>
+        <div class="help-sec-body">
+          <table class="ht">
+            <tr><th>球路</th><th>賠率</th></tr>
+            <tr class="pay"><td>正中央全壘打</td><td>8x</td></tr>
+            <tr class="pay"><td>左／右全壘打</td><td>3.5x</td></tr>
+            <tr class="pay"><td>外野安打</td><td>2.5x</td></tr>
+            <tr class="pay"><td>保送（第4壞球）</td><td>0.3x</td></tr>
+            <tr class="nil"><td>出局 / 好壞球 / 界外</td><td>0</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="help-sec">
+        <div class="help-sec-title">③ JP 廣告板 &amp; 計分板</div>
+        <div class="help-sec-body">
+          <ul><li>任意球打中JP物件即刻觸發，基礎倍率再乘以升級RNG（×1–5）。</li></ul>
+          <table class="ht" style="margin-top:6px">
+            <tr><th>物件</th><th>基礎</th><th>升級×1-5後</th></tr>
+            <tr class="pay"><td>⚡ 廣告板A</td><td>10x</td><td>10–50x 預測注</td></tr>
+            <tr class="pay"><td>⚡ 廣告板B</td><td>15x</td><td>15–75x 預測注</td></tr>
+            <tr class="pay"><td>⚡ 計分板</td><td>50x</td><td>50–250x 預測注</td></tr>
+          </table>
+          <div class="help-note">升級倍率 RNG: ×1(50%) ×2(25%) ×3(15%) ×4(7%) ×5(3%)</div>
+        </div>
+      </div>
+      <div class="help-sec">
+        <div class="help-sec-title">④ 預測投注</div>
+        <div class="help-sec-body">
+          <ul>
+            <li>每局開始前可選任意組合標的，各項<b>獨立扣費</b>（= 預測注額 × 選擇數）。</li>
+            <li>JP彩金以預測注額計算；安打/全壘打彩金以球注計算。</li>
+          </ul>
+          <table class="ht" style="margin-top:6px">
+            <tr><th>預測項目</th><th>賠率</th></tr>
+            <tr class="pay"><td>勝負（主勝/主敗/和）</td><td>1.9x / 1.9x / 12x ⚠️TBD</td></tr>
+            <tr class="pay"><td>大小分（盤口8）</td><td>1.9x ⚠️TBD</td></tr>
+            <tr class="pay"><td>勝分差</td><td>3–8x ⚠️TBD</td></tr>
+            <tr class="pay"><td>安打 多≥3 / 少&lt;3</td><td>1.6x / 2.0x</td></tr>
+            <tr class="pay"><td>得分單雙</td><td>2.3x / 1.4x</td></tr>
+            <tr class="pay"><td>主隊得分精確（0–9+）</td><td>3–15x ⚠️TBD</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="broke-modal" id="brokeModal">
+    <h2>GAME OVER</h2>
+    <p>籌碼歸零，重新開始？</p>
+    <button id="resetBtn">RESET 1,000,000</button>
+  </div>
+
+  <div id="debugPanel" class="debug-panel hidden">
+    <div class="dbg-title">⚙ DEBUG</div>
+    <div class="dbg-group">
+      <div class="dbg-row"><span class="dbk">Phase</span><span id="db-phase">—</span></div>
+      <div class="dbg-row"><span class="dbk">B/S/O</span><span id="db-count">0/0/0</span></div>
+      <div class="dbg-row"><span class="dbk">主/客/H/B</span><span id="db-score">0:0:0:0</span></div>
+      <div class="dbg-row"><span class="dbk">Preds</span><span id="db-preds">—</span></div>
+      <div class="dbg-row"><span class="dbk">JP倍率</span><span id="db-jp">A×1 B×1 S×1</span></div>
+    </div>
+    <div class="dbg-sep"></div>
+    <div class="dbg-group">
+      <div class="dbk">指定下球結果</div>
+      <select id="db-force-sel" class="dbg-sel">
+        <option value="">— 隨機 —</option>
+        <option value="hit_billboard_a">⚡ 廣告板A JP</option>
+        <option value="hit_billboard_b">⚡ 廣告板B JP</option>
+        <option value="hit_scoreboard">⚡ 計分板 JP</option>
+        <option value="hr_center">HR 中 8x</option>
+        <option value="hr_left">HR 左 3.5x</option>
+        <option value="hr_right">HR 右 3.5x</option>
+        <option value="hit_left">安打 左</option>
+        <option value="hit_right">安打 右</option>
+        <option value="fly_out">高飛出局</option>
+        <option value="ground_out">滾地出局</option>
+        <option value="foul_left">界外左</option>
+        <option value="foul_right">界外右</option>
+        <option value="strike">好球</option>
+        <option value="swing_miss">空振</option>
+        <option value="ball">壞球</option>
+        <option value="no_swing">不揮棒</option>
+      </select>
+    </div>
+    <div class="dbg-sep"></div>
+    <div class="dbg-group">
+      <button class="dbg-btn" id="db-trig-settle">→ 立即結算</button>
+      <button class="dbg-btn" id="db-add-hr">＋ 安打×3 HR</button>
+    </div>
+    <div class="dbg-sep"></div>
+    <div class="dbg-group">
+      <div class="dbk">JP 升級倍率</div>
+      <div style="display:flex;align-items:center;gap:3px;margin-top:3px">
+        <span style="font-size:9px;color:#486;width:12px">A</span>
+        <select id="db-jp-a" class="dbg-sel" style="flex:1">
+          <option value="1">×1</option><option value="2">×2</option>
+          <option value="3">×3</option><option value="4">×4</option><option value="5">×5</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:3px;margin-top:3px">
+        <span style="font-size:9px;color:#486;width:12px">B</span>
+        <select id="db-jp-b" class="dbg-sel" style="flex:1">
+          <option value="1">×1</option><option value="2">×2</option>
+          <option value="3">×3</option><option value="4">×4</option><option value="5">×5</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:3px;margin-top:3px">
+        <span style="font-size:9px;color:#486;width:12px">S</span>
+        <select id="db-jp-s" class="dbg-sel" style="flex:1">
+          <option value="1">×1</option><option value="2">×2</option>
+          <option value="3">×3</option><option value="4">×4</option><option value="5">×5</option>
+        </select>
+      </div>
+      <div class="dbg-inline" style="margin-top:4px">
+        <button class="dbg-btn-sm" id="db-jp-set">Set</button>
+        <button class="dbg-btn-sm" id="db-jp-max">全×5</button>
+      </div>
+    </div>
+    <div class="dbg-sep"></div>
+    <div class="dbg-group">
+      <div class="dbk">設定客隊分</div>
+      <div class="dbg-inline">
+        <input id="db-away-in" class="dbg-input" type="number" value="2" min="0" step="1">
+        <button class="dbg-btn-sm" id="db-away-set">Set</button>
+      </div>
+    </div>
+    <div class="dbg-sep"></div>
+    <div class="dbg-group">
+      <div class="dbk">設定餘額</div>
+      <div class="dbg-inline">
+        <input id="db-bal-in" class="dbg-input" type="number" value="1000000" min="0" step="500">
+        <button class="dbg-btn-sm" id="db-bal-set">Set</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ⚠️ 賠率 TBD — 以下標有 TBD 的值待模擬校正後替換
+const BIG_SMALL_LINE = 7; // TBD
+const ODDS = {
+  winloss:  { win:1.9,  lose:1.9,  draw:12.0 },         // TBD
+  bigsmall: { big:1.9,  small:1.9 },                     // TBD
+  margin:   { '1':4.0,  '2-3':3.0, '4-6':5.0, '7+':8.0 },           // TBD
+  hits:     { over:1.6, under:2.0 },
+  oddeven:  { odd:2.3,  even:1.4 },
+  exact:    { '0':3.0,'1':3.0,'2':3.5,'3':4.0,'4':5.0,'5':6.0,'6':8.0,'7':10.0,'8':15.0,'9+':12.0 }, // TBD
+};
+
+let _basesAnimating=false; // 跑壘動畫進行中時封鎖 updateBases 立即覆蓋
+
+// === STATE ===
+const STATE = {
+  balance:1000000, pitching:false, debug:false, muted:false,
+  balls:0, strikes:0, outs:0, bases:[0,0,0], baseAmts:[0,0,0], betHistory:[], hitLog:[],
+  hasHR:false, inningScore:0, inningEarned:0,
+  awayScore:2,
+  predWinLoss:[], predBigSmall:[], predMargin:[],
+  predHits:[], predOddEven:[], predExactScore:[],
+  lastPred:null,
+  totalBalls:0, totalHits:0, totalPitches:0,
+  phase:'predict',
+  auto:false, autoSpinsLeft:-1, speed:1, speedMul:1/3,
+  predBet:500,
+  jpMults:{hit_billboard_a:1,hit_billboard_b:1,hit_scoreboard:1},
+  jpChargedId:null,
+  batterIndex:0,
+};
+let autoTimer = null;
+let autoCountdownTimer = null;
+
+const PRED_KEY_LABELS = {
+  winloss:'勝負', bigsmall:'大小分', margin:'勝分差',
+  hits:'安打數', oddeven:'得分單雙', exact:'主隊得分',
+};
+const PRED_VAL_LABELS = {
+  winloss:  { win:'主隊勝', lose:'主隊敗', draw:'和局' },
+  bigsmall: { big:`大(≥${BIG_SMALL_LINE})`, small:`小(<${BIG_SMALL_LINE})` },
+  margin:   { '1':'贏1分','2-3':'贏2–3','4-6':'贏4–6','7+':'贏7+','lose':'敗或和' },
+  hits:     { over:'多≥3支', under:'少<3支' },
+  oddeven:  { odd:'單數', even:'雙數' },
+};
+
+// === SPRITES ===
+const SPRITES = {
+  batterIdle:     'assets/portrait/batter_idle.png',
+  batterWindup:   'assets/portrait/batter_windup.png',
+  batterSwing:    'assets/portrait/batter_swing.png',
+  batterFollow:   'assets/portrait/batter_follow.png',
+  pitcherIdle:    'assets/portrait/pitcher_idle.png',
+  pitcherWindup:  'assets/portrait/pitcher_windup.png',
+  pitcherRelease: 'assets/portrait/pitcher_release.png',
+  pitcherFollow:  'assets/portrait/pitcher_follow.png',
+};
+// 打者素材陣列（目前用同一套佔位，素材到位後替換路徑）
+const BATTER_VARIANTS=[
+  {idle:'assets/portrait/batter_idle.png', windup:'assets/portrait/batter_windup.png', swing:'assets/portrait/batter_swing.png', follow:'assets/portrait/batter_follow.png'},
+  {idle:'assets/portrait/batter_idle.png', windup:'assets/portrait/batter_windup.png', swing:'assets/portrait/batter_swing.png', follow:'assets/portrait/batter_follow.png'},
+  {idle:'assets/portrait/batter_idle.png', windup:'assets/portrait/batter_windup.png', swing:'assets/portrait/batter_swing.png', follow:'assets/portrait/batter_follow.png'},
+];
+Object.values(SPRITES).forEach(s => { const i = new Image(); i.src = s; });
+
+// === AUDIO ===
+let audioCtx = null;
+function initAudio(){
+  if(!audioCtx) audioCtx = new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+}
+function playTone(f,d,t='sine',v=0.2){
+  if(STATE.muted||!audioCtx) return;
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.frequency.value=f; o.type=t;
+  g.gain.setValueAtTime(v,audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime+d);
+}
+function playWhoosh(d=0.3,p=0.4){
+  if(STATE.muted||!audioCtx) return;
+  const ns=audioCtx.createBufferSource();
+  const buf=audioCtx.createBuffer(1,audioCtx.sampleRate*d,audioCtx.sampleRate);
+  const data=buf.getChannelData(0);
+  for(let i=0;i<data.length;i++) data[i]=(Math.random()*2-1)*0.5;
+  ns.buffer=buf;
+  const g=audioCtx.createGain();
+  g.gain.setValueAtTime(0,audioCtx.currentTime);
+  g.gain.linearRampToValueAtTime(p,audioCtx.currentTime+0.04);
+  g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);
+  const f=audioCtx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1800; f.Q.value=0.7;
+  ns.connect(f).connect(g).connect(audioCtx.destination); ns.start();
+}
+function playCrack(){ playWhoosh(0.08,0.6); playTone(120,0.15,'square',0.3); }
+function playWin(m){ const s=[523,659,784]; if(m>=8) s.push(1046,1318); s.forEach((f,i)=>setTimeout(()=>playTone(f,0.18,'triangle',0.25),i*80)); }
+function playJackpot(){ const s=[392,523,659,784,988,1175,1568]; s.forEach((f,i)=>setTimeout(()=>playTone(f,0.15,'triangle',0.3),i*70)); setTimeout(()=>[659,784,988].forEach((f,i)=>setTimeout(()=>playTone(f,0.4,'sine',0.2),i*100)),s.length*70); }
+function playLose(){ playTone(220,0.12,'sawtooth',0.18); setTimeout(()=>playTone(165,0.18,'sawtooth',0.15),90); }
+function playClick(){ playTone(800,0.04,'square',0.1); }
+
+// === OUTCOMES ===
+const OUTCOMES = [
+  {id:'strike',        label:'好球',              weight:180,  payout:0,   target:{top:96,left:44}},
+  {id:'ball',          label:'壞球',              weight:100,  payout:0,   target:{top:96,left:58}},
+  {id:'no_swing',      label:'BALL! 沒出棒',      weight:72,   payout:0,   target:{top:98,left:50}},
+  {id:'swing_miss',    label:'STRIKE! 揮空',      weight:130,  payout:0,   target:{top:98,left:48}},
+  {id:'ground_out',    label:'滾地球 接殺！',      weight:101,  payout:0,   target:{top:70,left:50}},
+  {id:'fly_out',       label:'高飛球 接殺！',      weight:72,   payout:0,   target:{top:55,left:50}},
+  {id:'foul_left',     label:'界外！可惜！',       weight:47,   payout:0,   target:{top:75,left:8}},
+  {id:'foul_right',    label:'界外！可惜！',       weight:47,   payout:0,   target:{top:75,left:92}},
+  {id:'hit_left',      label:'左外野 安打！',      weight:79,   payout:2.5, target:{top:35,left:22}},
+  {id:'hit_right',     label:'右外野 安打！',      weight:79,   payout:2.5, target:{top:35,left:78}},
+  {id:'hr_left',       label:'左外野 全壘打！',    weight:36,   payout:3.5, target:{top:18,left:22}},
+  {id:'hr_right',      label:'右外野 全壘打！',    weight:36,   payout:3.5, target:{top:18,left:78}},
+  {id:'hr_center',     label:'正中央 全壘打！',    weight:18,   payout:8,   target:{top:12,left:50}},
+  {id:'hit_billboard_a',label:'⚡ 打中廣告板A！', weight:1.5,  payout:0,   jp:true, jpBase:10,  target:{top:12,left:12}},
+  {id:'hit_billboard_b',label:'⚡ 打中廣告板B！', weight:1.0,  payout:0,   jp:true, jpBase:15,  target:{top:12,left:88}},
+  {id:'hit_scoreboard', label:'⚡ 打中計分板！',  weight:0.5,  payout:0,   jp:true, jpBase:50,  target:{top:12,left:50}},
+];
+const OBJECT_ROUTES = ['hit_billboard_a','hit_billboard_b','hit_scoreboard'];
+const RESULT_SIMPLE_LABELS = {
+  hit_left:'安打！', hit_right:'安打！',
+  hr_left:'全壘打！', hr_right:'全壘打！', hr_center:'全壘打！',
+  hit_billboard_a:'⚡ 廣告板A！', hit_billboard_b:'⚡ 廣告板B！', hit_scoreboard:'⚡ 計分板！',
+};
+
+function rollOutcome(){
+  const forceEl=document.getElementById('db-force-sel');
+  if(forceEl&&forceEl.value){
+    const forced=OUTCOMES.find(o=>o.id===forceEl.value);
+    forceEl.value='';
+    if(forced) return forced;
+  }
+  const total=OUTCOMES.reduce((s,o)=>s+o.weight,0);
+  let r=Math.random()*total;
+  for(const o of OUTCOMES){r-=o.weight; if(r<=0) return o;}
+  return OUTCOMES[OUTCOMES.length-1];
+}
+
+function rollJPMultiplier(){
+  const r=Math.random();
+  if(r<0.01) return 5;  // 1%
+  if(r<0.03) return 4;  // 2%
+  if(r<0.07) return 3;  // 4%
+  if(r<0.15) return 2;  // 8%
+  return 1;             // 85%
+}
+
+// === ANIMATION ===
+const sleep = ms => new Promise(r=>setTimeout(r, ms * STATE.speedMul));
+
+function spawnTrail(x,y,isHR=false){
+  const t=document.createElement('div');
+  t.className='trail'+(isHR?' hr-trail':'');
+  t.style.left=x+'px'; t.style.top=y+'px';
+  document.getElementById('field').appendChild(t);
+  setTimeout(()=>t.remove(),500);
+}
+
+async function playHREffect(isJackpot){
+  const ball=document.getElementById('ball');
+  const field=document.getElementById('field');
+  const bx=parseFloat(ball.style.left)||45;
+  const by=parseFloat(ball.style.top)||70;
+  for(let i=0;i<(isJackpot?3:2);i++){
+    setTimeout(()=>{
+      const r=document.createElement('div');
+      r.className='hr-shock';
+      r.style.left=bx+'%'; r.style.top=by+'%';
+      field.appendChild(r);
+      setTimeout(()=>r.remove(),700);
+    },i*110);
+  }
+  const flash=document.createElement('div');
+  flash.className='hr-flash';
+  flash.style.background=isJackpot
+    ?'radial-gradient(ellipse at 50% 70%,rgba(255,100,100,.75),rgba(255,60,0,.35) 45%,transparent 72%)'
+    :'radial-gradient(ellipse at 50% 70%,rgba(255,240,80,.8),rgba(255,160,0,.32) 45%,transparent 70%)';
+  field.appendChild(flash);
+  setTimeout(()=>flash.remove(),450);
+
+  // 衝擊波
+  const shock=document.createElement('div');
+  shock.className='hr-shockwave';
+  shock.style.top='75%'; shock.style.left='38%';
+  field.appendChild(shock);
+  setTimeout(()=>shock.remove(),750);
+
+  field.classList.add('hr-shake');
+  field.addEventListener('animationend',()=>field.classList.remove('hr-shake'),{once:true});
+  playTone(160,0.07,'square',0.45);
+  setTimeout(()=>playTone(340,0.12,'triangle',0.38),80);
+  if(isJackpot) setTimeout(()=>playTone(540,0.16,'sine',0.32),170);
+  await sleep(isJackpot?520:370);
+}
+
+async function animatePitch(){
+  const ball=document.getElementById('ball');
+  const pitcher=document.getElementById('pitcher');
+  const field=document.getElementById('field');
+  pitcher.src=SPRITES.pitcherWindup; pitcher.classList.add('windup');
+  await sleep(400);
+  pitcher.classList.remove('windup'); pitcher.classList.add('release');
+  pitcher.src=SPRITES.pitcherRelease; playWhoosh(0.5,0.3);
+  ball.classList.remove('hidden'); ball.classList.add('spinning');
+  ball.style.top='55%'; ball.style.left='50%'; ball.style.transition='none';
+  await sleep(50);
+  const contactTop=82, contactLeft=45;
+  const pitchCss=0.7*STATE.speedMul;
+  ball.style.transition=`top ${pitchCss}s ease-in,left ${pitchCss}s ease-in`;
+  ball.style.top=contactTop+'%'; ball.style.left=contactLeft+'%';
+  const ti=setInterval(()=>{
+    const r=ball.getBoundingClientRect(), fr=field.getBoundingClientRect();
+    spawnTrail(r.left-fr.left+4, r.top-fr.top+4);
+  },80);
+  setTimeout(()=>{ pitcher.src=SPRITES.pitcherFollow; }, 350*STATE.speedMul);
+  await sleep(700);
+  clearInterval(ti);
+  pitcher.classList.remove('release');
+  return {contactTop,contactLeft};
+}
+
+async function animateSwing(outcome,contactPos){
+  const batter=document.getElementById('batter');
+  const ball=document.getElementById('ball');
+  const isHR=['hr_center','hr_left','hr_right','hit_billboard_a','hit_billboard_b','hit_scoreboard'].includes(outcome.id);
+  if(outcome.id==='no_swing'||outcome.id==='ball'){await flyBall(outcome.target); return;}
+  batter.src=SPRITES.batterWindup; await sleep(80);
+  batter.classList.add('swing'); batter.src=SPRITES.batterSwing; playWhoosh(0.18,0.5);
+  await sleep(120);
+  batter.src=SPRITES.batterFollow;
+  if(outcome.id==='swing_miss'){await flyBall(outcome.target); return;}
+  playCrack(); ball.classList.remove('spinning');
+  if(isHR){ ball.classList.add('hr-ball'); await playHREffect(false); }
+  await flyBall(outcome.target,isHR);
+  ball.classList.remove('hr-ball');
+  batter.classList.remove('swing');
+}
+
+async function flyBall(target,isHR=false){
+  const ball=document.getElementById('ball');
+  const field=document.getElementById('field');
+  const ft=parseFloat(ball.style.top), fl=parseFloat(ball.style.left);
+  const dist=Math.hypot(target.top-ft,target.left-fl);
+  const baseDur=Math.max(0.8,Math.min(1.6,dist/60));
+  const cssDur=baseDur*STATE.speedMul;
+  ball.style.transition=`top ${cssDur}s ease-out,left ${cssDur}s ease-out`;
+  ball.style.top=target.top+'%'; ball.style.left=target.left+'%';
+  const ti=setInterval(()=>{
+    const r=ball.getBoundingClientRect(), fr=field.getBoundingClientRect();
+    spawnTrail(r.left-fr.left+4, r.top-fr.top+4,isHR);
+  },60);
+  await sleep(baseDur*1000);
+  clearInterval(ti);
+  ball.classList.remove('spinning');
+}
+
+function showResult(outcome,amt){
+  const b=document.getElementById('resultBanner');
+  b.classList.remove('show','lose','jackpot');
+  if(OBJECT_ROUTES.includes(outcome.id)||outcome.id==='jackpot'){
+    b.classList.add('jackpot');
+  } else if(outcome.payout===0){
+    b.classList.add('lose');
+  }
+  document.getElementById('resultLabel').textContent=RESULT_SIMPLE_LABELS[outcome.id]||outcome.label;
+  document.getElementById('resultPayout').textContent='';
+  void b.offsetWidth; b.classList.add('show');
+}
+
+const JP_DIALOG_COLORS={hit_billboard_a:'#c070ff',hit_billboard_b:'#c070ff',hit_scoreboard:'#4090ff'};
+const JP_DIALOG_NAMES={hit_billboard_a:'⚡ 廣告板 A',hit_billboard_b:'⚡ 廣告板 B',hit_scoreboard:'⚡ 計分板'};
+
+function spawnShards(x,y,color,count=16){
+  const field=document.getElementById('field');
+  for(let i=0;i<count;i++){
+    const s=document.createElement('div');
+    s.className='shard';
+    s.style.left=x+'%'; s.style.top=y+'%';
+    s.style.setProperty('--col',color);
+    s.style.setProperty('--w',(4+Math.random()*10)+'px');
+    s.style.setProperty('--h',(3+Math.random()*6)+'px');
+    const ang=Math.random()*360*Math.PI/180;
+    const dist=40+Math.random()*90;
+    s.style.setProperty('--tx',Math.cos(ang)*dist+'px');
+    s.style.setProperty('--ty',Math.sin(ang)*dist+'px');
+    s.style.setProperty('--rot',(Math.random()*540-270)+'deg');
+    s.style.setProperty('--dur',(0.5+Math.random()*0.6)+'s');
+    field.appendChild(s);
+    setTimeout(()=>s.remove(),1200);
+  }
+  const neon=document.createElement('div');
+  neon.className='neon-shatter';
+  neon.style.left=x+'%'; neon.style.top=y+'%';
+  neon.style.width='30px'; neon.style.height='30px';
+  neon.style.transform='translate(-50%,-50%)';
+  neon.style.background=`radial-gradient(circle,${color} 0%,transparent 70%)`;
+  field.appendChild(neon);
+  setTimeout(()=>neon.remove(),600);
+}
+
+function showJPDialog(outcomeId,mult,amount){
+  const dialog=document.getElementById('jpDialog');
+  const inner=dialog.querySelector('.jp-dialog-inner');
+  const color=JP_DIALOG_COLORS[outcomeId]||'#c070ff';
+  inner.style.setProperty('--jp-color',color);
+  inner.style.borderColor=color;
+  document.getElementById('jpDialogTitle').textContent=JP_DIALOG_NAMES[outcomeId]||'⚡ JP';
+  const multEl=document.getElementById('jpDialogMult');
+  multEl.textContent=mult>1?`×${mult} 倍升級！`:'×1';
+  multEl.className='jp-dialog-mult'+(mult<=1?' no-upgrade':'');
+  document.getElementById('jpDialogAmount').textContent='+'+amount.toLocaleString();
+  dialog.classList.remove('hidden');
+  setUiLocked(true);
+  document.getElementById('jpDialogClose').onclick=()=>{
+    dialog.classList.add('hidden');
+    setUiLocked(false);
+  };
+}
+
+function showJPResult(outcomeId, mult, amount){
+  const field=document.getElementById('field');
+  const shardPos={hit_billboard_a:{x:12,y:12},hit_billboard_b:{x:88,y:12},hit_scoreboard:{x:50,y:12}};
+  const pos=shardPos[outcomeId];
+  const col=JP_DIALOG_COLORS[outcomeId]||'#c070ff';
+
+  // 物件位置爆光
+  if(pos){
+    const burst=document.createElement('div');
+    burst.className='jp-hit-burst';
+    burst.style.top=pos.y+'%'; burst.style.left=pos.x+'%';
+    field.appendChild(burst);
+    setTimeout(()=>burst.remove(),650);
+    // 破碎碎片
+    setTimeout(()=>spawnShards(pos.x,pos.y,col,18),80);
+    setTimeout(()=>spawnShards(pos.x,pos.y,'#ffd03c',8),200);
+    // 煙火
+    spawnSparks(pos.x,pos.y,col,14);
+    // 物件閃光
+    const objMap={hit_billboard_a:'jpObjA',hit_billboard_b:'jpObjB',hit_scoreboard:'jpObjS'};
+    const objEl=document.getElementById(objMap[outcomeId]);
+    if(objEl){objEl.classList.add('hit-flash');setTimeout(()=>objEl.classList.remove('hit-flash'),800);}
+  }
+
+  // 升級倍率飛出（×2 以上）
+  if(mult>=2){
+    const popup=document.createElement('div');
+    popup.className=`jp-mult-popup mult-${mult}`;
+    if(mult>=3) popup.classList.add('big-mult');
+    popup.textContent=`×${mult} 倍升級！`;
+    field.appendChild(popup);
+    setTimeout(()=>popup.remove(),2400);
+  }
+
+  // Dialog 稍後彈出（讓破碎特效先演）
+  setTimeout(()=>showJPDialog(outcomeId,mult,amount),650);
+}
+
+function showDelta(amount){
+  const d=document.createElement('div');
+  d.className='delta '+(amount>=0?'gain':'loss');
+  d.textContent=(amount>=0?'+':'')+amount.toLocaleString();
+  d.style.top='60%'; d.style.left='50%'; d.style.transform='translateX(-50%)';
+  document.getElementById('field').appendChild(d);
+  setTimeout(()=>d.remove(),1500);
+}
+
+// === VISUAL EFFECTS ===
+function showRunnerArrow(fromBase, toBase){
+  const diamond=document.querySelector('.base-diamond');
+  if(!diamond) return;
+  const arrow=document.createElement('div');
+  arrow.className='base-runner-arrow';
+  arrow.textContent='▶';
+  const posMap={1:'arrow-to-1',2:'arrow-to-2',3:'arrow-to-3',0:'arrow-to-home'};
+  arrow.classList.add(posMap[toBase]||'arrow-to-1');
+  if(toBase===0){arrow.style.color='#ff6b6b';arrow.style.fontSize='18px';arrow.textContent='⬇';}
+  diamond.appendChild(arrow);
+  setTimeout(()=>arrow.remove(),700);
+}
+
+function showScorePopup(){
+  const diamond=document.querySelector('.base-diamond');
+  if(!diamond) return;
+  const pop=document.createElement('div');
+  pop.className='score-popup';
+  pop.textContent='+1';
+  diamond.appendChild(pop);
+  setTimeout(()=>pop.remove(),1500);
+}
+
+function flashBase(n){
+  const el=document.getElementById('base'+n);
+  if(!el) return;
+  el.classList.add('in-transit');
+  setTimeout(()=>el.classList.remove('in-transit'),560);
+}
+
+// 逐壘顯示跑壘箭頭：startBase 0=打者,1-3=壘；endBase 1-3=目標壘,0=得分本壘
+function showRunnerPath(startBase, endBase, startDelay=0){
+  const path=[];
+  if(endBase===0){
+    for(let b=startBase;b<3;b++) path.push({f:b,t:b+1});
+    path.push({f:3,t:0});
+  } else {
+    for(let b=startBase;b<endBase;b++) path.push({f:b,t:b+1});
+  }
+  path.forEach(({f,t},i)=>{
+    setTimeout(()=>{
+      showRunnerArrow(f,t);
+      if(_basesAnimating){
+        if(f>=1&&f<=3) document.getElementById('base'+f).classList.remove('occupied');
+        if(t>=1&&t<=3) document.getElementById('base'+t).classList.add('occupied');
+      }
+      if(t>=1&&t<=3) flashBase(t);
+      if(t===0){ setTimeout(()=>showScorePopup(),280); setTimeout(()=>playScoreRunner(),200); }
+    }, startDelay+i*620);
+  });
+}
+
+function applyBatterSkin(idx){
+  const v=BATTER_VARIANTS[idx];
+  SPRITES.batterIdle   =v.idle;
+  SPRITES.batterWindup =v.windup;
+  SPRITES.batterSwing  =v.swing;
+  SPRITES.batterFollow =v.follow;
+  const el=document.getElementById('batter');
+  if(el) el.src=v.idle;
+}
+function nextBatter(){
+  STATE.batterIndex=(STATE.batterIndex+1)%BATTER_VARIANTS.length;
+  applyBatterSkin(STATE.batterIndex);
+}
+function playBatterRun(){
+  const el=document.getElementById('batter');
+  if(!el) return;
+  el.classList.remove('running');
+  void el.offsetWidth;
+  el.classList.add('running');
+  setTimeout(()=>el.classList.remove('running'),800);
+}
+let _runnerCooldown=false;
+function playScoreRunner(){
+  if(_runnerCooldown) return;
+  _runnerCooldown=true;
+  setTimeout(()=>_runnerCooldown=false,1500);
+  const runner=document.getElementById('scoreRunner');
+  if(!runner) return;
+  runner.classList.remove('run-in');
+  void runner.offsetWidth;
+  runner.classList.add('run-in');
+  setTimeout(()=>runner.classList.remove('run-in'),1100);
+}
+
+function showHRRun(){
+  [{from:0,to:1},{from:1,to:2},{from:2,to:3},{from:3,to:0}]
+    .forEach(({from,to},i)=>{
+      setTimeout(()=>{
+        showRunnerArrow(from,to);
+        if(to>=1&&to<=3) flashBase(to);
+        if(to===0) setTimeout(()=>showScorePopup(),280);
+      }, i*620);
+    });
+}
+
+function spawnSparks(x,y,color='#ffd03c',count=10){
+  const field=document.getElementById('field');
+  for(let i=0;i<count;i++){
+    const spark=document.createElement('div');
+    spark.className='spark';
+    spark.style.left=x+'%'; spark.style.top=y+'%';
+    spark.style.background=color;
+    const angle=(Math.random()*360)*Math.PI/180;
+    const dist=60+Math.random()*80;
+    spark.style.setProperty('--tx',Math.cos(angle)*dist+'px');
+    spark.style.setProperty('--ty',Math.sin(angle)*dist+'px');
+    spark.style.setProperty('--dur',(0.6+Math.random()*0.5)+'s');
+    field.appendChild(spark);
+    setTimeout(()=>spark.remove(),1200);
+  }
+}
+
+// === BASE RUNNING ===
+function getHitAdvance(outcomeId){
+  if(outcomeId==='hit_left')  return Math.random()<0.70 ? 1 : 2;
+  if(outcomeId==='hit_right') return Math.random()<0.65 ? 1 : 2;
+  return 1;
+}
+
+function advanceRunners(bases, delayedAmt=0){
+  const pre=STATE.bases.map(v=>v>0); // 快照進壘前狀態
+  for(let i=2;i>=0;i--){
+    if(STATE.bases[i]){
+      if(i+bases>=3){
+        STATE.balance+=STATE.baseAmts[i];
+        if(STATE.baseAmts[i]>0) showDelta(STATE.baseAmts[i]);
+        STATE.inningScore++; STATE.bases[i]=0; STATE.baseAmts[i]=0;
+      } else {
+        STATE.bases[i+bases]=STATE.bases[i]; STATE.baseAmts[i+bases]=STATE.baseAmts[i];
+        STATE.bases[i]=0; STATE.baseAmts[i]=0;
+      }
+    }
+  }
+  STATE.bases[bases-1]=1;
+  STATE.baseAmts[bases-1]=delayedAmt;
+  // 鎖定，重置視覺為進壘前
+  _basesAnimating=true;
+  pre.forEach((on,i)=>document.getElementById('base'+(i+1)).classList.toggle('occupied',on));
+  // 各跑者逐壘動畫
+  for(let i=0;i<3;i++){
+    if(pre[i]) showRunnerPath(i+1, i+1+bases>3?0:i+1+bases);
+  }
+  showRunnerPath(0, bases); // 打者
+  _finalizeBasesAnim(3*620+700);
+}
+
+function settleBaseRunners(){
+  const pre=STATE.bases.map(v=>v>0);
+  STATE.inningScore++;
+  for(let i=2;i>=0;i--){
+    if(STATE.bases[i]){
+      showRunnerPath(i+1, 0, (2-i)*200);
+      STATE.balance+=STATE.baseAmts[i];
+      if(STATE.baseAmts[i]>0) showDelta(STATE.baseAmts[i]);
+      STATE.inningScore++; STATE.bases[i]=0; STATE.baseAmts[i]=0;
+    }
+  }
+  // 鎖定，重置視覺（跑者仍在壘上），等待打者跑完一圈
+  _basesAnimating=true;
+  pre.forEach((on,i)=>document.getElementById('base'+(i+1)).classList.toggle('occupied',on));
+  _finalizeBasesAnim(4*620+700); // 覆蓋打者全圈 showHRRun 的時長
+}
+
+// === COUNT BAR / DEBUG ===
+function updateCountBar(){
+  const b=STATE.balls, s=STATE.strikes, o=STATE.outs;
+  document.querySelectorAll('#ballDots .bso-dot').forEach((d,i)=>{d.className='bso-dot'+(i<b?' on-b':'')});
+  document.querySelectorAll('#strikeDots .bso-dot').forEach((d,i)=>{d.className='bso-dot'+(i<s?' on-s':'')});
+  document.querySelectorAll('#outDots .bso-dot').forEach((d,i)=>{d.className='bso-dot'+(i<o?' on-o':'')});
+  document.getElementById('liveScore').textContent=STATE.inningScore;
+  document.getElementById('awayScoreBar').textContent=STATE.awayScore;
+  document.getElementById('pitchCountBar').textContent=STATE.totalPitches;
+  updateDebug();
+}
+
+function updateDebug(){
+  if(document.getElementById('debugPanel').classList.contains('hidden')) return;
+  document.getElementById('db-phase').textContent=STATE.phase;
+  document.getElementById('db-count').textContent=`${STATE.balls}/${STATE.strikes}/${STATE.outs}`;
+  document.getElementById('db-score').textContent=`${STATE.inningScore}:${STATE.awayScore}:${STATE.totalHits}:${STATE.totalBalls}`;
+  const preds=[];
+  if(STATE.predWinLoss.length)    preds.push('W:'+STATE.predWinLoss.join(','));
+  if(STATE.predBigSmall.length)   preds.push('BS:'+STATE.predBigSmall.join(','));
+  if(STATE.predMargin.length)     preds.push('M:'+STATE.predMargin.join(','));
+  if(STATE.predHits.length)       preds.push('H:'+STATE.predHits.join(','));
+  if(STATE.predOddEven.length)    preds.push('OE:'+STATE.predOddEven.join(','));
+  if(STATE.predExactScore.length) preds.push('X:'+STATE.predExactScore.join(','));
+  document.getElementById('db-preds').textContent=preds.join(' ')||'—';
+  const jm=STATE.jpMults;
+  document.getElementById('db-jp').textContent=
+    `A×${jm.hit_billboard_a||1} B×${jm.hit_billboard_b||1} S×${jm.hit_scoreboard||1}`;
+  document.getElementById('db-bal-in').value=STATE.balance;
+}
+
+function updateBases(){
+  if(_basesAnimating) return;
+  [1,2,3].forEach(n=>{
+    document.getElementById('base'+n).classList.toggle('occupied',STATE.bases[n-1]>0);
+  });
+  const loaded=STATE.bases[0]&&STATE.bases[1]&&STATE.bases[2];
+  [1,2,3].forEach(n=>{
+    const el=document.getElementById('base'+n);
+    el.classList.remove('bases-loaded');
+    if(loaded&&STATE.bases[n-1]){void el.offsetWidth;el.classList.add('bases-loaded');}
+  });
+}
+// 動畫結束後強制同步視覺
+function _finalizeBasesAnim(ms){
+  setTimeout(()=>{ _basesAnimating=false; updateBases(); }, ms);
+}
+
+// === PREDICTION LOGIC ===
+function checkAllPredictions(){
+  const home=STATE.inningScore, away=STATE.awayScore;
+  const diff=home-away, total=home+away;
+  let payout=0;
+  STATE.predWinLoss.forEach(v=>{
+    if(v==='win'  && home>away)   payout+=Math.round(ODDS.winloss.win  *STATE.predBet);
+    if(v==='lose' && home<away)   payout+=Math.round(ODDS.winloss.lose *STATE.predBet);
+    if(v==='draw' && home===away) payout+=Math.round(ODDS.winloss.draw *STATE.predBet);
+  });
+  STATE.predBigSmall.forEach(v=>{
+    if(v==='big'   && total>=BIG_SMALL_LINE) payout+=Math.round(ODDS.bigsmall.big  *STATE.predBet);
+    if(v==='small' && total<BIG_SMALL_LINE)  payout+=Math.round(ODDS.bigsmall.small*STATE.predBet);
+  });
+  const absDiff=Math.abs(diff);
+  STATE.predMargin.forEach(v=>{
+    if(v==='1'   && absDiff===1)            payout+=Math.round(ODDS.margin['1']  *STATE.predBet);
+    if(v==='2-3' && absDiff>=2&&absDiff<=3) payout+=Math.round(ODDS.margin['2-3']*STATE.predBet);
+    if(v==='4-6' && absDiff>=4&&absDiff<=6) payout+=Math.round(ODDS.margin['4-6']*STATE.predBet);
+    if(v==='7+'  && absDiff>=7)             payout+=Math.round(ODDS.margin['7+'] *STATE.predBet);
+  });
+  STATE.predHits.forEach(v=>{
+    if(v==='over'  && STATE.totalHits>=3) payout+=Math.round(ODDS.hits.over *STATE.predBet);
+    if(v==='under' && STATE.totalHits<3)  payout+=Math.round(ODDS.hits.under*STATE.predBet);
+  });
+  STATE.predOddEven.forEach(v=>{
+    if(v==='odd'  && home%2!==0) payout+=Math.round(ODDS.oddeven.odd *STATE.predBet);
+    if(v==='even' && home%2===0) payout+=Math.round(ODDS.oddeven.even*STATE.predBet);
+  });
+  STATE.predExactScore.forEach(v=>{
+    const hit=(v==='9+')?home>=9:home===parseInt(v);
+    if(hit) payout+=Math.round((ODDS.exact[v]||3)*STATE.predBet);
+  });
+  return payout;
+}
+
+function isPredHit(key, val){
+  const home=STATE.inningScore, away=STATE.awayScore;
+  const diff=home-away, total=home+away;
+  if(key==='winloss'){
+    if(val==='win')  return home>away;
+    if(val==='lose') return home<away;
+    if(val==='draw') return home===away;
+  }
+  if(key==='bigsmall'){
+    if(val==='big')   return total>=BIG_SMALL_LINE;
+    if(val==='small') return total<BIG_SMALL_LINE;
+  }
+  if(key==='margin'){
+    const ad=Math.abs(diff);
+    if(val==='1')   return ad===1;
+    if(val==='2-3') return ad>=2&&ad<=3;
+    if(val==='4-6') return ad>=4&&ad<=6;
+    if(val==='7+')  return ad>=7;
+  }
+  if(key==='hits'){
+    if(val==='over')  return STATE.totalHits>=3;
+    if(val==='under') return STATE.totalHits<3;
+  }
+  if(key==='oddeven'){
+    if(val==='odd')  return STATE.inningScore%2!==0;
+    if(val==='even') return STATE.inningScore%2===0;
+  }
+  if(key==='exact'){
+    return (val==='9+')?STATE.inningScore>=9:STATE.inningScore===parseInt(val);
+  }
+  return false;
+}
+
+// === INNING ===
+function startInning(){
+  STATE.balls=0; STATE.strikes=0; STATE.outs=0;
+  STATE.bases=[0,0,0]; STATE.baseAmts=[0,0,0]; STATE.betHistory=[]; STATE.hitLog=[];
+  STATE.hasHR=false; STATE.inningScore=0; STATE.inningEarned=0;
+  STATE.predWinLoss=[]; STATE.predBigSmall=[]; STATE.predMargin=[];
+  STATE.predHits=[]; STATE.predOddEven=[]; STATE.predExactScore=[];
+  STATE.totalBalls=0; STATE.totalHits=0; STATE.totalPitches=0;
+  STATE.phase='predict';
+
+  document.getElementById('psbAway').textContent=STATE.awayScore;
+  document.getElementById('psbHome').textContent='?';
+  syncPredButtonsToState();
+  updateBetPanel(); updatePredCost(); updateConfirmBtn();
+  unlockBetChange();
+  // 重置 JP 物件顯示為基礎賠率（等到 startBatting 再 roll 新倍率）
+  STATE.jpMults={hit_billboard_a:1,hit_billboard_b:1,hit_scoreboard:1};
+  STATE.jpChargedId=null;
+  updateJPObjectDisplay();
+  document.getElementById('predictPanel').classList.remove('hidden');
+  document.getElementById('countBar').classList.add('hidden');
+  document.getElementById('basesDisplay').classList.add('hidden');
+  document.getElementById('predSummary').classList.add('hidden');
+  document.getElementById('predCountdown').classList.add('hidden');
+  setUiLocked(true);
+
+  if(STATE.auto){
+    if(STATE.lastPred) repeatLastPred();
+    startAutoCountdown();
+  }
+}
+
+function startAutoCountdown(){
+  clearAutoCountdown();
+  let remaining=3;
+  const cd=document.getElementById('predCountdown');
+  cd.classList.remove('hidden');
+  const msg=()=>{
+    const inn=STATE.autoSpinsLeft>=0?` ｜ 剩 ${STATE.autoSpinsLeft} 轉`:'';
+    return `重複上局選項，${remaining} 秒後繼續${inn}`;
+  };
+  cd.textContent=msg();
+  autoCountdownTimer=setInterval(()=>{
+    remaining--;
+    if(remaining<=0){
+      clearAutoCountdown();
+      confirmPrediction();
+    } else {
+      cd.textContent=msg();
+    }
+  },1000);
+}
+
+function clearAutoCountdown(){
+  if(autoCountdownTimer){ clearInterval(autoCountdownTimer); autoCountdownTimer=null; }
+  document.getElementById('predCountdown').classList.add('hidden');
+}
+
+async function settleInning(){
+  STATE.phase='settle';
+  setUiLocked(true);
+  STATE.bases=[0,0,0]; STATE.baseAmts=[0,0,0];
+  updateBases();
+
+  const predTotal=checkAllPredictions();
+
+  document.getElementById('stlHome').textContent=STATE.inningScore;
+  document.getElementById('stlAway').textContent=STATE.awayScore;
+  document.getElementById('stlHits').textContent=STATE.totalHits+(STATE.hasHR?' ⚾':'');
+  document.getElementById('stlBalls').textContent=STATE.totalBalls;
+  document.getElementById('stlTotal').textContent=(predTotal>0?'+':'')+predTotal.toLocaleString();
+
+  const rows=document.getElementById('settleRows');
+  rows.innerHTML='';
+
+  const PRED_GROUPS=[
+    {key:'winloss', arr:STATE.predWinLoss,  oddsMap:ODDS.winloss},
+    {key:'bigsmall',arr:STATE.predBigSmall, oddsMap:ODDS.bigsmall},
+    {key:'margin',  arr:STATE.predMargin,   oddsMap:ODDS.margin},
+    {key:'hits',    arr:STATE.predHits,     oddsMap:ODDS.hits},
+    {key:'oddeven', arr:STATE.predOddEven,  oddsMap:ODDS.oddeven},
+    {key:'exact',   arr:STATE.predExactScore,oddsMap:ODDS.exact},
+  ];
+
+  let anyPred=false, anyHit=false;
+  for(const {key,arr,oddsMap} of PRED_GROUPS){
+    for(const val of arr){
+      anyPred=true;
+      const hit=isPredHit(key,val);
+      if(!hit) continue;
+      anyHit=true;
+      const payout=Math.round((oddsMap[val]||0)*STATE.predBet);
+      const valLabel=key==='exact'
+        ?(val==='9+'?'9+分':val+'分')
+        :((PRED_VAL_LABELS[key]&&PRED_VAL_LABELS[key][val])||val);
+      const r=document.createElement('div');
+      r.className='settle-row hit';
+      r.innerHTML=`<span class="stl-icon">✓</span>`+
+        `<span class="stl-label">${PRED_KEY_LABELS[key]||key}<br><small>${valLabel}</small></span>`+
+        `<span class="stl-amt gain">+${payout.toLocaleString()}</span>`;
+      rows.appendChild(r);
+    }
+  }
+
+  if(!anyPred){
+    const e=document.createElement('div');
+    e.className='settle-empty'; e.textContent='本局未設定預測';
+    rows.appendChild(e);
+  } else if(!anyHit){
+    const e=document.createElement('div');
+    e.className='settle-empty'; e.textContent='本局未命中';
+    rows.appendChild(e);
+  }
+
+  document.getElementById('settleOverlay').classList.remove('hidden');
+
+  await new Promise(resolve=>{
+    document.getElementById('settleNextBtn').onclick=()=>resolve();
+  });
+  document.getElementById('settleOverlay').classList.add('hidden');
+
+  if(predTotal>0){
+    STATE.balance+=predTotal; STATE.inningEarned+=predTotal;
+    updateBalance(); updateBetPanel();
+  }
+
+  startInning();
+}
+
+function updateJPObjectDisplay(){
+  const JP_IDS=['hit_billboard_a','hit_billboard_b','hit_scoreboard'];
+  const domMap={hit_billboard_a:'jpObjA',hit_billboard_b:'jpObjB',hit_scoreboard:'jpObjS'};
+  const baseLabel={hit_billboard_a:'×10',hit_billboard_b:'×15',hit_scoreboard:'×50'};
+  const multColor={2:'#a8f0a0',3:'var(--gold-b)',4:'#f0a050',5:'#ff6060'};
+  JP_IDS.forEach(id=>{
+    const el=document.getElementById(domMap[id]);
+    if(!el) return;
+    const oddsEl=el.querySelector('.jp-obj-odds');
+    if(!oddsEl) return;
+    const m=STATE.jpMults[id]||1;
+    if(m>1){
+      oddsEl.textContent=`${baseLabel[id]} ⚡×${m}`;
+      oddsEl.style.color=multColor[m]||'#fff';
+    } else {
+      oddsEl.textContent=baseLabel[id];
+      oddsEl.style.color='';
+    }
+  });
+}
+
+function startBatting(){
+  STATE.phase='batting';
+  document.getElementById('predictPanel').classList.add('hidden');
+  clearAutoCountdown();
+  document.getElementById('countBar').classList.remove('hidden');
+  document.getElementById('basesDisplay').classList.remove('hidden');
+  renderPredSummary();
+  updateCountBar(); updateBases(); setUiLocked(false);
+  // 每局開始時統一 roll 三個 JP 倍率，整局固定
+  const JP_IDS=['hit_billboard_a','hit_billboard_b','hit_scoreboard'];
+  JP_IDS.forEach(id=>{ STATE.jpMults[id]=rollJPMultiplier(); });
+  STATE.jpChargedId=null;
+  updateJPObjectDisplay();
+  updateDebug();
+  // 升級 JP 各播一次蓄能動畫（火後不理，不阻塞投球）
+  JP_IDS.filter(id=>STATE.jpMults[id]>1)
+        .forEach((id,i)=>setTimeout(()=>showJPPreUpgrade(id,STATE.jpMults[id]),i*500));
+  if(STATE.auto) scheduleAuto();
+}
+
+// === GAME LOOP ===
+function showJPPreUpgrade(chargedId, mult){
+  const field=document.getElementById('field');
+  const multColors={2:'#a8f0a0',3:'var(--gold-b)',4:'#f0a050',5:'#ff6060'};
+  const col=multColors[mult]||'#fff';
+  const objDomMap={hit_billboard_a:'jpObjA',hit_billboard_b:'jpObjB',hit_scoreboard:'jpObjS'};
+
+  // 只蓄指定的單一 JP 物件
+  const el=document.getElementById(objDomMap[chargedId]);
+  if(el){
+    el.classList.add('charging');
+    const oddsEl=el.querySelector('.jp-obj-odds');
+    if(oddsEl){
+      const orig=oddsEl.textContent;
+      oddsEl.textContent=`⚡×${mult}`;
+      oddsEl.style.color=col;
+      setTimeout(()=>{oddsEl.textContent=orig;oddsEl.style.color='';el.classList.remove('charging');},750);
+    }
+  }
+
+  // 浮出升級提示（對應物件位置）
+  const popup=document.createElement('div');
+  popup.className=`jp-mult-popup mult-${mult}`;
+  if(mult>=3) popup.classList.add('big-mult');
+  popup.textContent=`×${mult} CHARGE`;
+  popup.style.top='14%';
+  field.appendChild(popup);
+  setTimeout(()=>popup.remove(),1800);
+}
+
+async function pitch(){
+  if(STATE.pitching) return;
+  if(STATE.phase!=='batting') return;
+  if(STATE.balance<STATE.predBet){showBroke(); return;}
+
+  STATE.pitching=true; setUiLocked(true);
+  STATE.balance-=STATE.predBet; updateBalance();
+  document.getElementById('inningEarnedDisplay').textContent='—';
+  let pitchEarned=0;
+  STATE.totalPitches++;
+  tickAutoSpin();
+
+  updateDebug();
+
+  const outcome=rollOutcome();
+  const cp=await animatePitch();
+  await animateSwing(outcome,cp);
+
+  if(outcome.jp){
+    // JP 觸發：使用該物件自己的預先倍率
+    const mult=STATE.jpMults[outcome.id]||1;
+    const jpAmt=Math.round(STATE.predBet*outcome.jpBase*mult);
+    STATE.balance+=jpAmt; pitchEarned+=jpAmt;
+    showJPResult(outcome.id, mult, jpAmt);
+    showDelta(jpAmt);
+    playJackpot();
+    updateBalance(); updateCountBar();
+    await sleep(2200);
+    nextBatter();
+    resetField(); STATE.pitching=false; setUiLocked(false);
+    if(STATE.auto&&STATE.phase==='batting') scheduleAuto();
+    return;
+  }
+
+  const payAmt=Math.round(STATE.predBet*outcome.payout);
+  if(payAmt>0){
+    STATE.balance+=payAmt; pitchEarned+=payAmt;
+    STATE.hitLog.push({label:outcome.label||outcome.id, payout:payAmt});
+    showDelta(payAmt); playWin(outcome.payout);
+  } else if(!OBJECT_ROUTES.includes(outcome.id)){ showDelta(-STATE.predBet); playLose(); }
+  showResult(outcome,payAmt);
+  STATE.betHistory.push(STATE.predBet);
+  STATE.totalBalls++;
+  if(['hit_left','hit_right','hr_center','hr_left','hr_right'].includes(outcome.id)) STATE.totalHits++;
+
+  if(outcome.id==='strike'||outcome.id==='swing_miss'){
+    STATE.strikes++;
+    if(STATE.strikes>=3){STATE.outs++; STATE.strikes=0; STATE.balls=0; showResult({id:'strikeout',label:'三振！',payout:0},0); nextBatter();}
+  } else if(outcome.id==='ball'||outcome.id==='no_swing'){
+    STATE.balls++;
+    if(STATE.balls>=4){
+      const pw=Math.round(STATE.predBet*0.3); STATE.balance+=pw; pitchEarned+=pw;
+      STATE.hitLog.push({label:'保送', payout:pw});
+      showDelta(pw); advanceRunners(1,0); STATE.balls=0; STATE.strikes=0;
+      showResult({id:'walk',label:'保送',payout:0.3},pw);
+      playBatterRun(); nextBatter();
+    }
+  } else if(outcome.id==='foul_left'||outcome.id==='foul_right'){
+    if(STATE.strikes<2) STATE.strikes++;
+  } else {
+    STATE.balls=0; STATE.strikes=0;
+    if(outcome.id==='fly_out'||outcome.id==='ground_out'){
+      STATE.outs++;
+      nextBatter();
+    } else if(['hr_center','hr_left','hr_right'].includes(outcome.id)){
+      STATE.hasHR=true; settleBaseRunners(); showHRRun();
+      playBatterRun();
+      setTimeout(nextBatter, 850);
+      // 煙火粒子落點
+      spawnSparks(outcome.target.left,outcome.target.top,'#ffd03c',12);
+      if(outcome.id==='hr_center'){
+        setTimeout(()=>spawnSparks(outcome.target.left,outcome.target.top,'#ff9030',8),200);
+        const field=document.getElementById('field');
+        const shock2=document.createElement('div');
+        shock2.className='hr-shockwave second';
+        shock2.style.top='75%'; shock2.style.left='38%';
+        field.appendChild(shock2);
+        setTimeout(()=>shock2.remove(),1100);
+      }
+    } else if(outcome.id==='hit_left'||outcome.id==='hit_right'){
+      advanceRunners(getHitAdvance(outcome.id));
+      playBatterRun(); nextBatter();
+    }
+  }
+
+  document.getElementById('inningEarnedDisplay').textContent=pitchEarned>0?'+'+pitchEarned.toLocaleString():'—';
+  updateCountBar(); updateBases();
+  await sleep(1800);
+
+  if(STATE.outs>=3){
+    resetField(); STATE.pitching=false;
+    await settleInning(); return;
+  }
+  resetField(); updateBalance(); STATE.pitching=false; setUiLocked(false);
+
+  if(STATE.balance<=0){stopAuto(); setTimeout(showBroke,400); return;}
+  if(STATE.balance<STATE.predBet){
+    const af=BET_OPTIONS.filter(b=>b<=STATE.balance);
+    if(af.length>0){ STATE.predBet=Math.max(...af); updateBetPanel(); }
+    else{stopAuto(); setTimeout(showBroke,400); return;}
+  }
+  if(STATE.auto&&STATE.phase==='batting') scheduleAuto();
+}
+
+function resetField(){
+  const ball=document.getElementById('ball');
+  ball.classList.add('hidden'); ball.classList.remove('spinning');
+  ball.style.transition='none'; ball.style.top='55%'; ball.style.left='50%';
+  const batter=document.getElementById('batter');
+  batter.classList.remove('swing','running'); batter.src=SPRITES.batterIdle;
+  const pitcher=document.getElementById('pitcher');
+  pitcher.classList.remove('release','windup'); pitcher.src=SPRITES.pitcherIdle;
+}
+
+function setUiLocked(locked){
+  document.getElementById('pitchBtn').classList.toggle('disabled',locked);
+}
+function lockBetChange(){
+  document.getElementById('changeBetBtn').disabled=true;
+  const pb=document.querySelector('.pred-bet-change');
+  if(pb) pb.disabled=true;
+}
+function unlockBetChange(){
+  document.getElementById('changeBetBtn').disabled=false;
+  const pb=document.querySelector('.pred-bet-change');
+  if(pb) pb.disabled=false;
+}
+function updateBalance(){
+  document.getElementById('balance').textContent=STATE.balance.toLocaleString();
+}
+
+// === BET DIALOG ===
+const BET_OPTIONS=[100,300,500,1000,3000,5000,10000,50000,100000];
+function initBetDialogGrid(){
+  const grid=document.getElementById('betDialogGrid');
+  grid.innerHTML='';
+  BET_OPTIONS.forEach(v=>{
+    const btn=document.createElement('button');
+    btn.className='bet-option';
+    btn.textContent=v>=10000?(v/10000)+'萬':v.toLocaleString();
+    btn.dataset.val=v;
+    btn.onclick=()=>selectBetOption(v);
+    grid.appendChild(btn);
+  });
+}
+function openBetDialog(){
+  document.querySelectorAll('.bet-option').forEach(b=>
+    b.classList.toggle('selected',parseInt(b.dataset.val)===STATE.predBet));
+  document.getElementById('betDialog').classList.remove('hidden');
+}
+function selectBetOption(v){
+  STATE.predBet=v;
+  updatePredBetDisplay();
+  updateBetPanel();
+  updatePredCost(); updateConfirmBtn();
+  closeBetDialog();
+}
+function closeBetDialog(){ document.getElementById('betDialog').classList.add('hidden'); }
+function closeBetDialogOutside(e){ if(e.target===document.getElementById('betDialog')) closeBetDialog(); }
+
+function updateBetPanel(){
+  const v=STATE.predBet;
+  document.getElementById('currentBetDisplay').textContent=v>=10000?(v/10000)+'萬':v.toLocaleString();
+  const e=STATE.inningEarned;
+  document.getElementById('inningEarnedDisplay').textContent=e===0?'—':(e>0?'+'+e.toLocaleString():e.toLocaleString());
+}
+
+function updatePredBetDisplay(){
+  const hint=document.getElementById('predBetHint');
+  if(hint) hint.textContent=STATE.predBet>=10000?(STATE.predBet/10000)+'萬':STATE.predBet.toLocaleString();
+}
+
+// === PREDICT PANEL ===
+const PRED_KEY_MAP={winloss:'predWinLoss',bigsmall:'predBigSmall',margin:'predMargin',
+                    hits:'predHits',oddeven:'predOddEven',exact:'predExactScore'};
+function syncPredButtonsToState(){
+  document.querySelectorAll('.predict-btn[data-group]').forEach(btn=>{
+    const arr=STATE[PRED_KEY_MAP[btn.dataset.group]]||[];
+    btn.classList.toggle('selected', arr.includes(btn.dataset.val));
+  });
+}
+
+function setPredState(pred, val){
+  const arr=STATE[PRED_KEY_MAP[pred]];
+  const i=arr.indexOf(val);
+  if(i>=0) arr.splice(i,1); else arr.push(val);
+}
+
+function clearAllPreds(){
+  STATE.predWinLoss=[]; STATE.predBigSmall=[]; STATE.predMargin=[];
+  STATE.predHits=[]; STATE.predOddEven=[]; STATE.predExactScore=[];
+  syncPredButtonsToState(); updatePredCost(); updateConfirmBtn();
+}
+
+function selectAllPreds(){
+  STATE.predWinLoss=['win','lose','draw'];
+  STATE.predBigSmall=['big','small'];
+  STATE.predMargin=['1','2-3','4-6','7+'];
+  STATE.predHits=['over','under'];
+  STATE.predOddEven=['odd','even'];
+  STATE.predExactScore=['0','1','2','3','4','5','6','7','8','9+'];
+  syncPredButtonsToState(); updatePredCost(); updateConfirmBtn();
+}
+
+function repeatLastPred(){
+  if(!STATE.lastPred) return;
+  STATE.predWinLoss   =[...STATE.lastPred.predWinLoss];
+  STATE.predBigSmall  =[...STATE.lastPred.predBigSmall];
+  STATE.predMargin    =[...STATE.lastPred.predMargin];
+  STATE.predHits      =[...STATE.lastPred.predHits];
+  STATE.predOddEven   =[...STATE.lastPred.predOddEven];
+  STATE.predExactScore=[...STATE.lastPred.predExactScore];
+  syncPredButtonsToState(); updatePredCost(); updateConfirmBtn();
+}
+
+function countPredTargets(){
+  return [STATE.predWinLoss,STATE.predBigSmall,STATE.predMargin,
+          STATE.predHits,STATE.predOddEven,STATE.predExactScore]
+    .reduce((s,a)=>s+a.length,0);
+}
+
+function updatePredCost(){
+  const count=countPredTargets();
+  const hint=document.getElementById('predCostHint');
+  if(count===0){
+    hint.textContent='尚未選擇標的';
+    hint.classList.remove('has-cost');
+  } else {
+    hint.textContent=`共 ${count} 個標的，費用 ${(STATE.predBet*count).toLocaleString()}`;
+    hint.classList.add('has-cost');
+  }
+}
+
+function updateConfirmBtn(){
+  const cpBtn=document.getElementById('confirmPredictBtn');
+  const count=countPredTargets();
+  if(count===0){
+    cpBtn.textContent='略過，直接開始 ▶';
+    cpBtn.disabled=false;
+  } else {
+    cpBtn.textContent=`確認投注 ${count} 項（扣 ${(STATE.predBet*count).toLocaleString()}）▶`;
+    cpBtn.disabled=false;
+  }
+}
+
+function confirmPrediction(){
+  const count=countPredTargets();
+  if(count>0){
+    const totalCost=STATE.predBet*count;
+    if(STATE.balance<totalCost){
+      const hint=document.getElementById('predCostHint');
+      hint.textContent=`餘額不足（需要 ${totalCost.toLocaleString()}）`;
+      hint.style.color='#ff6060';
+      clearAutoCountdown();
+      return;
+    }
+    STATE.balance-=totalCost;
+    updateBalance();
+    STATE.lastPred={
+      predWinLoss:[...STATE.predWinLoss], predBigSmall:[...STATE.predBigSmall],
+      predMargin:[...STATE.predMargin], predHits:[...STATE.predHits],
+      predOddEven:[...STATE.predOddEven], predExactScore:[...STATE.predExactScore],
+    };
+  }
+  startBatting();
+}
+
+function renderPredSummary(){
+  const el=document.getElementById('predSummary');
+  el.innerHTML='';
+  const groups=[
+    ['winloss',STATE.predWinLoss],['bigsmall',STATE.predBigSmall],
+    ['margin',STATE.predMargin],['hits',STATE.predHits],
+    ['oddeven',STATE.predOddEven],['exact',STATE.predExactScore],
+  ];
+  for(const [key,arr] of groups){
+    for(const val of arr){
+      const t=document.createElement('span');
+      t.className='pred-tag pred-active';
+      const valLabel=key==='exact'
+        ?(val==='9+'?'9+分':val+'分')
+        :((PRED_VAL_LABELS[key]&&PRED_VAL_LABELS[key][val])||val);
+      t.textContent=valLabel;
+      el.appendChild(t);
+    }
+  }
+  el.classList.toggle('hidden', el.children.length===0);
+}
+
+// === SPEED ===
+const SPEED_OPTIONS=[1,2,4];
+function cycleSpeed(){
+  const idx=SPEED_OPTIONS.indexOf(STATE.speed);
+  STATE.speed=SPEED_OPTIONS[(idx+1)%SPEED_OPTIONS.length];
+  STATE.speedMul=1/(3*STATE.speed);
+  document.getElementById('speedBtn').textContent=STATE.speed+'x';
+}
+
+// === AUTO ===
+function scheduleAuto(){
+  clearTimeout(autoTimer);
+  if(!STATE.auto) return;
+  const delay=STATE.phase==='predict'?600:400;
+  autoTimer=setTimeout(()=>{
+    if(!STATE.auto) return;
+    if(STATE.phase==='batting'&&!STATE.pitching){ initAudio(); pitch(); }
+  },delay);
+}
+
+function stopAuto(){
+  STATE.auto=false; STATE.autoSpinsLeft=-1;
+  clearTimeout(autoTimer); autoTimer=null; clearAutoCountdown();
+  const btn=document.getElementById('pitchBtn');
+  if(btn){btn.classList.remove('auto-active'); btn.textContent='PITCH';}
+}
+
+function tickAutoSpin(){
+  if(!STATE.auto || STATE.autoSpinsLeft<0) return;
+  STATE.autoSpinsLeft--;
+  updateAutoBtn();
+  if(STATE.autoSpinsLeft===0) stopAuto();
+}
+
+function updateAutoBtn(){
+  const btn=document.getElementById('pitchBtn');
+  if(!STATE.auto){btn.classList.remove('auto-active');btn.textContent='PITCH';return;}
+  btn.classList.add('auto-active');
+  btn.textContent=STATE.autoSpinsLeft<0?'AUTO ∞':`AUTO ${STATE.autoSpinsLeft}`;
+}
+
+const AUTO_INN_OPTIONS=[5,10,25,50,100,-1];
+function initAutoCountGrid(){
+  const grid=document.getElementById('autoCountGrid');
+  grid.innerHTML='';
+  AUTO_INN_OPTIONS.forEach(n=>{
+    const btn=document.createElement('button');
+    btn.className='bet-option';
+    btn.textContent=n<0?'∞ 無限':`${n} 轉`;
+    btn.onclick=()=>startAutoWithCount(n);
+    grid.appendChild(btn);
+  });
+}
+
+function startAutoWithCount(n){
+  document.getElementById('autoDialog').classList.add('hidden');
+  STATE.auto=true; STATE.autoSpinsLeft=n;
+  updateAutoBtn(); initAudio();
+  if(STATE.phase==='predict') startAutoCountdown();
+  else scheduleAuto();
+}
+
+function showBroke(){ document.getElementById('brokeModal').classList.add('show'); }
+function reset(){
+  STATE.balance=1000000;
+  updateBalance(); updateBetPanel();
+  document.getElementById('brokeModal').classList.remove('show');
+  startInning();
+}
+
+// === UI HOOKS ===
+let pitchLongTimer=null;
+const PITCH_BTN=document.getElementById('pitchBtn');
+PITCH_BTN.addEventListener('pointerdown',e=>{
+  if(PITCH_BTN.classList.contains('disabled')) return;
+  pitchLongTimer=setTimeout(()=>{
+    pitchLongTimer=null;
+    document.getElementById('autoDialog').classList.remove('hidden');
+  },600);
+});
+PITCH_BTN.addEventListener('pointerup',()=>{ clearTimeout(pitchLongTimer); pitchLongTimer=null; });
+PITCH_BTN.addEventListener('pointerleave',()=>{ clearTimeout(pitchLongTimer); pitchLongTimer=null; });
+PITCH_BTN.addEventListener('click',()=>{
+  if(STATE.auto){ stopAuto(); return; }
+  if(PITCH_BTN.classList.contains('disabled')) return;
+  initAudio(); playClick(); pitch();
+});
+
+document.getElementById('speedBtn').addEventListener('click', cycleSpeed);
+
+document.getElementById('zonesBtn').addEventListener('click',()=>{
+  STATE.debug=!STATE.debug;
+  document.getElementById('zones').classList.toggle('debug',STATE.debug);
+  document.getElementById('zonesBtn').classList.toggle('on',STATE.debug);
+});
+document.getElementById('debugBtn').addEventListener('click',()=>{
+  const panel=document.getElementById('debugPanel');
+  const show=panel.classList.toggle('hidden');
+  document.getElementById('debugBtn').classList.toggle('on',!show);
+  if(!show) updateDebug();
+});
+
+// Predict buttons — multi-select, re-click toggles off
+document.querySelectorAll('.predict-btn[data-group]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    setPredState(btn.dataset.group, btn.dataset.val);
+    btn.classList.toggle('selected', STATE[PRED_KEY_MAP[btn.dataset.group]].includes(btn.dataset.val));
+    updatePredCost(); updateConfirmBtn();
+  });
+});
+
+document.getElementById('predAllBtn').addEventListener('click', selectAllPreds);
+document.getElementById('predClearBtn').addEventListener('click', ()=>{ clearAllPreds(); clearAutoCountdown(); });
+document.getElementById('predRepeatBtn').addEventListener('click', repeatLastPred);
+
+document.getElementById('confirmPredictBtn').addEventListener('click', ()=>{
+  clearAutoCountdown();
+  confirmPrediction();
+});
+
+document.getElementById('helpBtn').addEventListener('click',()=>{
+  document.getElementById('helpOverlay').classList.remove('hidden');
+});
+document.getElementById('helpClose').addEventListener('click',()=>{
+  document.getElementById('helpOverlay').classList.add('hidden');
+});
+document.getElementById('muteBtn').addEventListener('click',()=>{
+  initAudio(); STATE.muted=!STATE.muted;
+  document.getElementById('muteBtn').textContent=STATE.muted?'🔇':'🔊';
+});
+document.getElementById('resetBtn').addEventListener('click', reset);
+
+initAutoCountGrid();
+document.getElementById('autoDialogClose').addEventListener('click',()=>{
+  document.getElementById('autoDialog').classList.add('hidden');
+});
+document.getElementById('autoDialog').addEventListener('click',e=>{
+  if(e.target===document.getElementById('autoDialog'))
+    document.getElementById('autoDialog').classList.add('hidden');
+});
+
+// Debug hooks
+document.getElementById('db-trig-settle').addEventListener('click',()=>{
+  if(STATE.pitching||STATE.phase==='settle') return;
+  settleInning();
+});
+document.getElementById('db-add-hr').addEventListener('click',()=>{
+  STATE.hasHR=true; STATE.totalHits=Math.max(STATE.totalHits,3); updateDebug();
+});
+
+function applyDbJPMults(){
+  STATE.jpMults.hit_billboard_a=parseInt(document.getElementById('db-jp-a').value)||1;
+  STATE.jpMults.hit_billboard_b=parseInt(document.getElementById('db-jp-b').value)||1;
+  STATE.jpMults.hit_scoreboard =parseInt(document.getElementById('db-jp-s').value)||1;
+  updateJPObjectDisplay(); updateDebug();
+}
+document.getElementById('db-jp-set').addEventListener('click', applyDbJPMults);
+document.getElementById('db-jp-max').addEventListener('click',()=>{
+  ['db-jp-a','db-jp-b','db-jp-s'].forEach(id=>document.getElementById(id).value='5');
+  applyDbJPMults();
+});
+document.getElementById('db-bal-set').addEventListener('click',()=>{
+  const v=parseInt(document.getElementById('db-bal-in').value);
+  if(!isNaN(v)&&v>=0){STATE.balance=v; updateBalance(); updateDebug();}
+});
+document.getElementById('db-away-set').addEventListener('click',()=>{
+  const v=parseInt(document.getElementById('db-away-in').value);
+  if(!isNaN(v)&&v>=0){
+    STATE.awayScore=v;
+    document.getElementById('psbAway').textContent=v;
+    document.getElementById('awayScoreBar').textContent=v;
+    updateDebug();
+  }
+});
+
+// Update big/small line label in predict panel
+document.getElementById('bigSmallLineLabel').textContent=BIG_SMALL_LINE;
+
+// === INIT ===
+initBetDialogGrid();
+updateBalance(); updateBetPanel(); updatePredBetDisplay(); startInning();
+
+// Responsive scaling
+function fitGame(){
+  const scale=Math.min(window.innerWidth/460,window.innerHeight/820);
+  document.getElementById('game').style.transform=`translate(-50%,-50%) scale(${scale})`;
+}
+window.addEventListener('resize',fitGame);
+fitGame();
+</script>
+</body>
+</html>
