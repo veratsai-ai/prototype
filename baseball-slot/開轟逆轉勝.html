@@ -457,6 +457,25 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
 .jp-obj-scoreboard .jp-obj-label{color:rgba(120,180,255,.8)}
 .jp-obj-odds{font-family:var(--fd);font-size:13px;font-weight:700;color:#e0b0ff;text-shadow:0 0 8px rgba(180,80,255,.8)}
 .jp-obj-scoreboard .jp-obj-odds{color:#90c8ff;text-shadow:0 0 8px rgba(80,160,255,.8)}
+
+/* === 計分板比分顯示（v17） === */
+.sb-score{display:flex;align-items:center;gap:4px;font-family:var(--fd);font-weight:800}
+.sb-team{font-size:9px;color:rgba(120,180,255,.75);font-weight:400}
+.sb-num{font-size:18px;color:#cfe6ff;text-shadow:0 0 8px rgba(80,160,255,.7);min-width:14px;text-align:center;display:inline-block;transition:transform .2s}
+.sb-colon{font-size:16px;color:rgba(120,180,255,.6)}
+.jp-obj-odds-corner{position:absolute;top:2px;right:5px;font-family:var(--fd);font-size:11px;font-weight:700;color:#90c8ff;text-shadow:0 0 8px rgba(80,160,255,.8)}
+@keyframes sbScorePop{
+  0%{transform:scale(1);text-shadow:0 0 8px rgba(80,160,255,.7)}
+  30%{transform:scale(1.6);text-shadow:0 0 20px rgba(120,200,255,1),0 0 35px rgba(80,160,255,.8);color:#fff}
+  100%{transform:scale(1);text-shadow:0 0 8px rgba(80,160,255,.7)}
+}
+.sb-num.scored{animation:sbScorePop .6s ease-out}
+.sb-plus{position:absolute;top:50%;left:62%;font-family:var(--fd);font-size:16px;font-weight:900;color:#6cff9c;text-shadow:0 0 12px rgba(80,255,140,.9);pointer-events:none;z-index:20;animation:sbPlusFloat 1s ease-out forwards}
+@keyframes sbPlusFloat{
+  0%{opacity:0;transform:translateY(0) scale(.6)}
+  25%{opacity:1;transform:translateY(-6px) scale(1.2)}
+  100%{opacity:0;transform:translateY(-22px) scale(1)}
+}
 @keyframes objHitFlash{0%{opacity:1;filter:brightness(1)}20%{opacity:1;filter:brightness(5)}40%{opacity:0}70%{opacity:0}100%{opacity:1;filter:brightness(1)}}
 .jp-obj.hit-flash .jp-obj-screen{animation:objHitFlash .6s ease-out forwards}
 @keyframes objCharge{0%{filter:brightness(1)}25%{filter:brightness(2.5)}50%{filter:brightness(1.6)}75%{filter:brightness(3)}100%{filter:brightness(1)}}
@@ -483,8 +502,16 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
       </div>
       <div class="jp-obj jp-obj-scoreboard" id="jpObjS" data-id="hit_scoreboard">
         <div class="jp-obj-screen">
-          <div class="jp-obj-label">計分板</div>
-          <div class="jp-obj-odds">×50</div>
+          <!-- JP 倍率：移到右上角 -->
+          <div class="jp-obj-odds-corner" id="jpObjSOdds">×50</div>
+          <!-- 比分：板子中央主顯示 -->
+          <div class="sb-score">
+            <span class="sb-team">客</span>
+            <span class="sb-num" id="sbAway">0</span>
+            <span class="sb-colon">:</span>
+            <span class="sb-num" id="sbHome">0</span>
+            <span class="sb-team">主</span>
+          </div>
         </div>
       </div>
     </div>
@@ -1002,6 +1029,11 @@ const RESULT_SIMPLE_LABELS = {
   hit_billboard_a:'⚡ 廣告板A！', hit_billboard_b:'⚡ 廣告板B！', hit_scoreboard:'⚡ 計分板！',
 };
 
+// === JP 動態權重（v16）===
+const JP_BASE_WEIGHT    = { hit_billboard_a:1.5, hit_billboard_b:1.0, hit_scoreboard:0.5 };
+const JP_CHARGED_WEIGHT = 100;     // 升級後權重（極易擊中）
+const JP_TRIGGER        = 0.0009;  // 每球每物件升級觸發率 0.09%（約每 28 局一次）
+
 function rollOutcome(){
   const forceEl=document.getElementById('db-force-sel');
   if(forceEl&&forceEl.value){
@@ -1009,19 +1041,44 @@ function rollOutcome(){
     forceEl.value='';
     if(forced) return forced;
   }
-  const total=OUTCOMES.reduce((s,o)=>s+o.weight,0);
+  // 動態權重：升級的 JP 物件權重暴增（升級後容易擊中）
+  const pool=OUTCOMES.map(o=>{
+    if(o.jp){
+      const w=(STATE.jpMults[o.id]||1)>1 ? JP_CHARGED_WEIGHT : JP_BASE_WEIGHT[o.id];
+      return {...o, weight:w};
+    }
+    return o;
+  });
+  const total=pool.reduce((s,o)=>s+o.weight,0);
   let r=Math.random()*total;
-  for(const o of OUTCOMES){r-=o.weight; if(r<=0) return o;}
-  return OUTCOMES[OUTCOMES.length-1];
+  for(const o of pool){r-=o.weight; if(r<=0) return o;}
+  return pool[pool.length-1];
 }
 
+// 觸發已移到 JP_TRIGGER（prepareJPForNextPitch），這裡只決定「升幾倍」
 function rollJPMultiplier(){
   const r=Math.random();
-  if(r<0.01) return 5;  // 1%
-  if(r<0.03) return 4;  // 2%
-  if(r<0.07) return 3;  // 4%
-  if(r<0.15) return 2;  // 8%
-  return 1;             // 85%
+  if(r<0.02) return 5;  // 2%
+  if(r<0.10) return 4;  // 8%
+  if(r<0.35) return 3;  // 25%
+  return 2;             // 65%
+}
+
+// 為「下一球」預先判定升級並顯示（在閒置時呼叫，讓玩家按 PITCH 前就看到鎖定倍率）
+function prepareJPForNextPitch(){
+  const JP_IDS=['hit_billboard_a','hit_billboard_b','hit_scoreboard'];
+  const upgraded=[];
+  JP_IDS.forEach(id=>{
+    if((STATE.jpMults[id]||1) === 1){       // 只對未升級（×1）的物件判定
+      if(Math.random() < JP_TRIGGER){       // 稀有觸發
+        STATE.jpMults[id] = rollJPMultiplier();   // 鎖定升級倍率（權重由 rollOutcome 自動暴增）
+        upgraded.push({id, m:STATE.jpMults[id]});
+      }
+    }
+  });
+  // 先把鎖定倍率寫進顯示，再播提示——否則 showJPPreUpgrade 的 750ms 還原會洗掉 ⚡×N
+  updateJPObjectDisplay();
+  upgraded.forEach(({id, m})=>showJPPreUpgrade(id, m));
 }
 
 // === ANIMATION ===
@@ -1267,6 +1324,34 @@ function showScorePopup(){
   setTimeout(()=>pop.remove(),1500);
 }
 
+// === 計分板比分（v17） ===
+function updateScoreboard(){
+  const away=document.getElementById('sbAway');
+  const home=document.getElementById('sbHome');
+  if(away) away.textContent=STATE.awayScore;
+  if(home) home.textContent=STATE.inningScore;
+}
+
+function playScoreboardScore(addN=1){
+  const homeEl=document.getElementById('sbHome');
+  const screen=document.querySelector('#jpObjS .jp-obj-screen');
+  if(!homeEl) return;
+  // +1 浮字
+  if(screen){
+    const plus=document.createElement('div');
+    plus.className='sb-plus';
+    plus.textContent=`+${addN}`;
+    screen.appendChild(plus);
+    setTimeout(()=>plus.remove(),1000);
+  }
+  // 數字更新 + 發光跳動
+  homeEl.textContent=STATE.inningScore;
+  homeEl.classList.remove('scored');
+  void homeEl.offsetWidth;
+  homeEl.classList.add('scored');
+  setTimeout(()=>homeEl.classList.remove('scored'),600);
+}
+
 function flashBase(n){
   const el=document.getElementById('base'+n);
   if(!el) return;
@@ -1291,7 +1376,7 @@ function showRunnerPath(startBase, endBase, startDelay=0){
         if(t>=1&&t<=3) document.getElementById('base'+t).classList.add('occupied');
       }
       if(t>=1&&t<=3) flashBase(t);
-      if(t===0){ setTimeout(()=>showScorePopup(),280); setTimeout(()=>playScoreRunner(),200); }
+      if(t===0){ setTimeout(()=>{showScorePopup();playScoreboardScore(1);},280); setTimeout(()=>playScoreRunner(),200); }
     }, startDelay+i*620);
   });
 }
@@ -1336,7 +1421,7 @@ function showHRRun(){
       setTimeout(()=>{
         showRunnerArrow(from,to);
         if(to>=1&&to<=3) flashBase(to);
-        if(to===0) setTimeout(()=>showScorePopup(),280);
+        if(to===0) setTimeout(()=>{showScorePopup();playScoreboardScore(1);},280);
       }, i*620);
     });
 }
@@ -1541,10 +1626,11 @@ function startInning(){
   syncPredButtonsToState();
   updateBetPanel(); updatePredCost(); updateConfirmBtn();
   unlockBetChange();
-  // 重置 JP 物件顯示為基礎賠率（等到 startBatting 再 roll 新倍率）
+  // 局末過期：所有 JP 物件重置 ×1，未擊中的升級不跨局保留
   STATE.jpMults={hit_billboard_a:1,hit_billboard_b:1,hit_scoreboard:1};
   STATE.jpChargedId=null;
   updateJPObjectDisplay();
+  updateScoreboard();
   document.getElementById('predictPanel').classList.remove('hidden');
   document.getElementById('countBar').classList.add('hidden');
   document.getElementById('basesDisplay').classList.add('hidden');
@@ -1663,7 +1749,7 @@ function updateJPObjectDisplay(){
   JP_IDS.forEach(id=>{
     const el=document.getElementById(domMap[id]);
     if(!el) return;
-    const oddsEl=el.querySelector('.jp-obj-odds');
+    const oddsEl=el.querySelector('.jp-obj-odds, .jp-obj-odds-corner');
     if(!oddsEl) return;
     const m=STATE.jpMults[id]||1;
     if(m>1){
@@ -1684,15 +1770,12 @@ function startBatting(){
   document.getElementById('basesDisplay').classList.remove('hidden');
   renderPredSummary();
   updateCountBar(); updateBases(); setUiLocked(false);
-  // 每局開始時統一 roll 三個 JP 倍率，整局固定
-  const JP_IDS=['hit_billboard_a','hit_billboard_b','hit_scoreboard'];
-  JP_IDS.forEach(id=>{ STATE.jpMults[id]=rollJPMultiplier(); });
+  // 局初 jpMults 已在 startInning() 重置為 ×1（每局獨立，不跨局保留）
   STATE.jpChargedId=null;
   updateJPObjectDisplay();
   updateDebug();
-  // 升級 JP 各播一次蓄能動畫（火後不理，不阻塞投球）
-  JP_IDS.filter(id=>STATE.jpMults[id]>1)
-        .forEach((id,i)=>setTimeout(()=>showJPPreUpgrade(id,STATE.jpMults[id]),i*500));
+  // 為第一球預先判定升級並顯示（玩家按 PITCH 前就能看到）
+  prepareJPForNextPitch();
   if(STATE.auto) scheduleAuto();
 }
 
@@ -1707,7 +1790,7 @@ function showJPPreUpgrade(chargedId, mult){
   const el=document.getElementById(objDomMap[chargedId]);
   if(el){
     el.classList.add('charging');
-    const oddsEl=el.querySelector('.jp-obj-odds');
+    const oddsEl=el.querySelector('.jp-obj-odds, .jp-obj-odds-corner');
     if(oddsEl){
       const orig=oddsEl.textContent;
       oddsEl.textContent=`⚡×${mult}`;
@@ -1720,7 +1803,7 @@ function showJPPreUpgrade(chargedId, mult){
   const popup=document.createElement('div');
   popup.className=`jp-mult-popup mult-${mult}`;
   if(mult>=3) popup.classList.add('big-mult');
-  popup.textContent=`×${mult} CHARGE`;
+  popup.textContent=`⚡ ×${mult} 升級！`;
   popup.style.top='14%';
   field.appendChild(popup);
   setTimeout(()=>popup.remove(),1800);
@@ -1745,9 +1828,11 @@ async function pitch(){
   await animateSwing(outcome,cp);
 
   if(outcome.jp){
-    // JP 觸發：使用該物件自己的預先倍率
+    // JP 觸發：使用該物件當前鎖定倍率
     const mult=STATE.jpMults[outcome.id]||1;
     const jpAmt=Math.round(STATE.predBet*outcome.jpBase*mult);
+    STATE.jpMults[outcome.id]=1;     // 擊中後回基礎（解鎖，下一球重新參與判定）
+    updateJPObjectDisplay();
     STATE.balance+=jpAmt; pitchEarned+=jpAmt;
     showJPResult(outcome.id, mult, jpAmt);
     showDelta(jpAmt);
@@ -1756,6 +1841,7 @@ async function pitch(){
     await sleep(2200);
     nextBatter();
     resetField(); STATE.pitching=false; setUiLocked(false);
+    prepareJPForNextPitch();   // 擊中已解鎖，立即為下一球重新判定並顯示
     if(STATE.auto&&STATE.phase==='batting') scheduleAuto();
     return;
   }
@@ -1827,6 +1913,7 @@ async function pitch(){
     if(af.length>0){ STATE.predBet=Math.max(...af); updateBetPanel(); }
     else{stopAuto(); setTimeout(showBroke,400); return;}
   }
+  prepareJPForNextPitch();   // 為下一球預先判定並顯示升級（玩家按 PITCH 前就能看到）
   if(STATE.auto&&STATE.phase==='batting') scheduleAuto();
 }
 
@@ -2186,6 +2273,7 @@ document.getElementById('db-away-set').addEventListener('click',()=>{
     STATE.awayScore=v;
     document.getElementById('psbAway').textContent=v;
     document.getElementById('awayScoreBar').textContent=v;
+    updateScoreboard();
     updateDebug();
   }
 });
