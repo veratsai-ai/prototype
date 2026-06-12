@@ -48,12 +48,12 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
 .zone[data-id="hr_center"]    {top:10%; left:28%;width:44%;height:12%;background:rgba(212,160,74,.38)}
 .zone[data-id="hr_left"]      {top:16%; left:1%; width:26%;height:12%;background:rgba(212,160,74,.30)}
 .zone[data-id="hr_right"]     {top:16%; left:73%;width:26%;height:12%;background:rgba(212,160,74,.30)}
-/* 安打落點 */
-.zone[data-id="hit_left"]     {top:31%; left:1%; width:30%;height:13%;background:rgba(80,200,100,.30)}
-.zone[data-id="hit_right"]    {top:31%; left:69%;width:30%;height:13%;background:rgba(80,200,100,.30)}
-/* 出局 */
-.zone[data-id="fly_out"]      {top:46%; left:22%;width:56%;height:11%;background:rgba(130,130,130,.30)}
-.zone[data-id="ground_out"]   {top:59%; left:18%;width:64%;height:12%;background:rgba(130,130,130,.30)}
+/* 外野球落點 */
+.zone[data-id="fly_left"]     {top:31%; left:1%; width:30%;height:13%;background:rgba(80,200,100,.30)}
+.zone[data-id="fly_center"]   {top:26%; left:33%;width:34%;height:13%;background:rgba(80,200,100,.36)}
+.zone[data-id="fly_right"]    {top:31%; left:69%;width:30%;height:13%;background:rgba(80,200,100,.30)}
+/* 滾地球 */
+.zone[data-id="grounder"]     {top:59%; left:18%;width:64%;height:12%;background:rgba(130,200,130,.28)}
 /* 界外 */
 .zone[data-id="foul_left"]    {top:68%; left:0; width:17%;height:13%;background:rgba(80,80,80,.40)}
 .zone[data-id="foul_right"]   {top:68%; left:83%;width:17%;height:13%;background:rgba(80,80,80,.40)}
@@ -328,10 +328,25 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
 .settle-next{width:100%;background:linear-gradient(165deg,#d48020,#8c4808);border:none;border-radius:10px;color:#fff;font-family:var(--fd);font-size:14px;font-weight:700;letter-spacing:.1em;padding:11px;cursor:pointer;box-shadow:0 4px 14px rgba(200,120,0,.45),inset 0 1px 0 rgba(255,255,255,.12);transition:all .14s}
 .settle-next:hover{box-shadow:0 5px 20px rgba(200,120,0,.65);transform:translateY(-1px)}
 
-/* PRED SUMMARY TAGS */
-.pred-summary{position:absolute;top:20%;left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;gap:4px;justify-content:center;z-index:20;pointer-events:none;max-width:92%}
+/* PRED SUMMARY（徽章收合式） */
+.pred-summary{position:absolute;top:20%;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:5px;z-index:20;pointer-events:none;max-width:92%}
+.pred-badge{pointer-events:auto;display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.78);border:1px solid rgba(74,196,87,.45);border-radius:20px;padding:4px 12px;font-family:var(--fb);font-size:11px;font-weight:700;color:#6de87a;cursor:pointer;letter-spacing:.05em;transition:border-color .15s,color .15s,box-shadow .15s;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.pred-badge:hover{border-color:rgba(74,196,87,.85)}
+.pred-badge.has-hit{border-color:rgba(240,192,96,.75);color:var(--gold-b);box-shadow:0 0 10px rgba(240,192,96,.4)}
+.pred-badge.pulse{animation:badgePulse .5s ease-out}
+@keyframes badgePulse{0%,100%{transform:scale(1)}40%{transform:scale(1.18)}}
+.pred-tag-list{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;pointer-events:none}
 .pred-tag{font-family:var(--fb);font-size:10px;font-weight:600;letter-spacing:.05em;padding:3px 8px;border-radius:20px;background:rgba(0,0,0,.72)}
 .pred-tag.pred-active{color:#6de87a;border:1px solid rgba(74,196,87,.4)}
+.pred-tag.pred-hit{color:var(--gold-b);border-color:rgba(240,192,96,.65);box-shadow:0 0 8px rgba(240,192,96,.3)}
+/* 局末開獎演出 */
+.pred-summary.reveal{transform:translateX(-50%) scale(1.18);transition:transform .25s ease-out}
+.pred-tag.pred-miss{opacity:.32}
+.pred-tag.pred-flash{color:#ffe9a0;border-color:rgba(255,220,80,.9);animation:predFlash .45s ease-in-out 5}
+@keyframes predFlash{
+  0%,100%{box-shadow:0 0 8px rgba(240,192,96,.3);background:rgba(0,0,0,.72)}
+  50%{box-shadow:0 0 18px rgba(255,220,80,.95),0 0 32px rgba(240,192,96,.55);background:rgba(85,58,6,.92)}
+}
 
 /* HR EFFECTS */
 .hr-shock{position:absolute;border-radius:50%;pointer-events:none;z-index:46;transform:translate(-50%,-50%);animation:hrShock .55s ease-out forwards}
@@ -520,13 +535,13 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
       <div class="zone jp" data-id="hit_scoreboard">計分板 JP<small>基礎×50</small></div>
       <div class="zone jp" data-id="hit_billboard_a">廣告板A JP<small>基礎×10</small></div>
       <div class="zone jp" data-id="hit_billboard_b">廣告板B JP<small>基礎×15</small></div>
-      <div class="zone" data-id="hr_center">中HR <b>×8</b></div>
-      <div class="zone" data-id="hr_left">左HR <b>×3.5</b></div>
-      <div class="zone" data-id="hr_right">右HR <b>×3.5</b></div>
-      <div class="zone" data-id="hit_left">左安 <b>×2.5</b></div>
-      <div class="zone" data-id="hit_right">右安 <b>×2.5</b></div>
-      <div class="zone" data-id="fly_out">高飛出局</div>
-      <div class="zone" data-id="ground_out">滾地出局</div>
+      <div class="zone" data-id="hr_center">中HR <b>×7</b></div>
+      <div class="zone" data-id="hr_left">左HR <b>×3.2</b></div>
+      <div class="zone" data-id="hr_right">右HR <b>×3.2</b></div>
+      <div class="zone" data-id="fly_left">左外野 <b>×1.7</b></div>
+      <div class="zone" data-id="fly_center">中外野 <b>×2.2</b></div>
+      <div class="zone" data-id="fly_right">右外野 <b>×1.7</b></div>
+      <div class="zone" data-id="grounder">滾地 <b>×0.9</b></div>
       <div class="zone" data-id="foul_left">界外</div>
       <div class="zone" data-id="foul_right">界外</div>
       <div class="zone" data-id="behind_batter">好壞球</div>
@@ -665,7 +680,10 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
       </div>
     </div>
 
-    <div id="predSummary" class="pred-summary hidden"></div>
+    <div id="predSummary" class="pred-summary hidden">
+      <button id="predBadge" class="pred-badge">🎯 <span id="predBadgeCount">0</span> 項 ▾</button>
+      <div id="predTagList" class="pred-tag-list hidden"></div>
+    </div>
 
     <!-- SETTLE OVERLAY -->
     <div id="settleOverlay" class="settle-overlay hidden">
@@ -770,12 +788,15 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
         <div class="help-sec-body">
           <table class="ht">
             <tr><th>球路</th><th>賠率</th></tr>
-            <tr class="pay"><td>正中央全壘打</td><td>8x</td></tr>
-            <tr class="pay"><td>左／右全壘打</td><td>3.5x</td></tr>
-            <tr class="pay"><td>外野安打</td><td>2.5x</td></tr>
+            <tr class="pay"><td>全壘打 中</td><td>7x</td></tr>
+            <tr class="pay"><td>全壘打 左/右</td><td>3.2x</td></tr>
+            <tr class="pay"><td>中外野</td><td>2.2x</td></tr>
+            <tr class="pay"><td>左/右外野</td><td>1.7x</td></tr>
+            <tr class="pay"><td>滾地球</td><td>0.9x</td></tr>
             <tr class="pay"><td>保送（第4壞球）</td><td>0.3x</td></tr>
-            <tr class="nil"><td>出局 / 好壞球 / 界外</td><td>0</td></tr>
+            <tr class="nil"><td>好壞球 / 界外</td><td>0</td></tr>
           </table>
+          <div class="help-note">外野球／滾地球：打到先依方向賠付，再判定安打上壘或接殺出局（接殺不計安打數）</div>
         </div>
       </div>
       <div class="help-sec">
@@ -835,13 +856,13 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
         <option value="hit_billboard_a">⚡ 廣告板A JP</option>
         <option value="hit_billboard_b">⚡ 廣告板B JP</option>
         <option value="hit_scoreboard">⚡ 計分板 JP</option>
-        <option value="hr_center">HR 中 8x</option>
-        <option value="hr_left">HR 左 3.5x</option>
-        <option value="hr_right">HR 右 3.5x</option>
-        <option value="hit_left">安打 左</option>
-        <option value="hit_right">安打 右</option>
-        <option value="fly_out">高飛出局</option>
-        <option value="ground_out">滾地出局</option>
+        <option value="hr_center">HR 中 7x</option>
+        <option value="hr_left">HR 左 3.2x</option>
+        <option value="hr_right">HR 右 3.2x</option>
+        <option value="fly_left">左外野 1.7x</option>
+        <option value="fly_center">中外野 2.2x</option>
+        <option value="fly_right">右外野 1.7x</option>
+        <option value="grounder">滾地 0.9x</option>
         <option value="foul_left">界外左</option>
         <option value="foul_right">界外右</option>
         <option value="strike">好球</option>
@@ -1005,26 +1026,25 @@ function playClick(){ playTone(800,0.04,'square',0.1); }
 
 // === OUTCOMES ===
 const OUTCOMES = [
-  {id:'strike',        label:'好球',              weight:180,  payout:0,   target:{top:96,left:44}},
-  {id:'ball',          label:'壞球',              weight:100,  payout:0,   target:{top:96,left:58}},
-  {id:'no_swing',      label:'BALL! 沒出棒',      weight:72,   payout:0,   target:{top:98,left:50}},
-  {id:'swing_miss',    label:'STRIKE! 揮空',      weight:130,  payout:0,   target:{top:98,left:48}},
-  {id:'ground_out',    label:'滾地球 接殺！',      weight:101,  payout:0,   target:{top:70,left:50}},
-  {id:'fly_out',       label:'高飛球 接殺！',      weight:72,   payout:0,   target:{top:55,left:50}},
-  {id:'foul_left',     label:'界外！可惜！',       weight:47,   payout:0,   target:{top:75,left:8}},
-  {id:'foul_right',    label:'界外！可惜！',       weight:47,   payout:0,   target:{top:75,left:92}},
-  {id:'hit_left',      label:'左外野 安打！',      weight:79,   payout:2.5, target:{top:35,left:22}},
-  {id:'hit_right',     label:'右外野 安打！',      weight:79,   payout:2.5, target:{top:35,left:78}},
-  {id:'hr_left',       label:'左外野 全壘打！',    weight:36,   payout:3.5, target:{top:18,left:22}},
-  {id:'hr_right',      label:'右外野 全壘打！',    weight:36,   payout:3.5, target:{top:18,left:78}},
-  {id:'hr_center',     label:'正中央 全壘打！',    weight:18,   payout:8,   target:{top:12,left:50}},
-  {id:'hit_billboard_a',label:'⚡ 打中廣告板A！', weight:1.5,  payout:0,   jp:true, jpBase:10,  target:{top:12,left:12}},
-  {id:'hit_billboard_b',label:'⚡ 打中廣告板B！', weight:1.0,  payout:0,   jp:true, jpBase:15,  target:{top:12,left:88}},
-  {id:'hit_scoreboard', label:'⚡ 打中計分板！',  weight:0.5,  payout:0,   jp:true, jpBase:50,  target:{top:12,left:50}},
+  {id:'strike',        label:'好球',           weight:180, payout:0,   target:{top:96,left:44}},
+  {id:'ball',          label:'壞球',           weight:100, payout:0,   target:{top:96,left:58}},
+  {id:'no_swing',      label:'BALL! 沒出棒',   weight:72,  payout:0,   target:{top:98,left:50}},
+  {id:'swing_miss',    label:'STRIKE! 揮空',   weight:130, payout:0,   target:{top:98,left:48}},
+  {id:'foul_left',     label:'界外！可惜！',    weight:47,  payout:0,   target:{top:75,left:8}},
+  {id:'foul_right',    label:'界外！可惜！',    weight:47,  payout:0,   target:{top:75,left:92}},
+  {id:'fly_left',      label:'左外野！',        weight:90,  payout:1.7, target:{top:35,left:22}},
+  {id:'fly_center',    label:'中外野！',        weight:72,  payout:2.2, target:{top:30,left:50}},
+  {id:'fly_right',     label:'右外野！',        weight:90,  payout:1.7, target:{top:35,left:78}},
+  {id:'grounder',      label:'滾地球！',        weight:112, payout:0.9, target:{top:70,left:50}},
+  {id:'hr_left',       label:'左外野 全壘打！',  weight:23,  payout:3.2, target:{top:18,left:22}},
+  {id:'hr_center',     label:'正中央 全壘打！',  weight:11,  payout:7,   target:{top:12,left:50}},
+  {id:'hr_right',      label:'右外野 全壘打！',  weight:23,  payout:3.2, target:{top:18,left:78}},
+  {id:'hit_billboard_a',label:'⚡ 打中廣告板A！',weight:1.5, payout:0, jp:true, jpBase:10, target:{top:12,left:12}},
+  {id:'hit_billboard_b',label:'⚡ 打中廣告板B！',weight:1.0, payout:0, jp:true, jpBase:15, target:{top:12,left:88}},
+  {id:'hit_scoreboard', label:'⚡ 打中計分板！', weight:0.5, payout:0, jp:true, jpBase:50, target:{top:12,left:50}},
 ];
 const OBJECT_ROUTES = ['hit_billboard_a','hit_billboard_b','hit_scoreboard'];
 const RESULT_SIMPLE_LABELS = {
-  hit_left:'安打！', hit_right:'安打！',
   hr_left:'全壘打！', hr_right:'全壘打！', hr_center:'全壘打！',
   hit_billboard_a:'⚡ 廣告板A！', hit_billboard_b:'⚡ 廣告板B！', hit_scoreboard:'⚡ 計分板！',
 };
@@ -1325,18 +1345,23 @@ function showScorePopup(){
 }
 
 // === 計分板比分（v17） ===
+// 計分板目前「已顯示」的主隊分數；逐跑者遞增，與 STATE.inningScore（投球當下即加足）解耦
+let _sbDisplayScore=0;
+
 function updateScoreboard(){
   const away=document.getElementById('sbAway');
   const home=document.getElementById('sbHome');
   if(away) away.textContent=STATE.awayScore;
-  if(home) home.textContent=STATE.inningScore;
+  // 重置/同步：把已顯示分數對齊實際分數（球與球之間兩者應相等）
+  _sbDisplayScore=STATE.inningScore;
+  if(home) home.textContent=_sbDisplayScore;
 }
 
 function playScoreboardScore(addN=1){
   const homeEl=document.getElementById('sbHome');
   const screen=document.querySelector('#jpObjS .jp-obj-screen');
   if(!homeEl) return;
-  // +1 浮字
+  // +N 浮字
   if(screen){
     const plus=document.createElement('div');
     plus.className='sb-plus';
@@ -1344,8 +1369,9 @@ function playScoreboardScore(addN=1){
     screen.appendChild(plus);
     setTimeout(()=>plus.remove(),1000);
   }
-  // 數字更新 + 發光跳動
-  homeEl.textContent=STATE.inningScore;
+  // 逐格遞增：每位跑者抵達各加 addN，數字不一次跳到最終值（上限為實際分數）
+  _sbDisplayScore=Math.min(_sbDisplayScore+addN, STATE.inningScore);
+  homeEl.textContent=_sbDisplayScore;
   homeEl.classList.remove('scored');
   void homeEl.offsetWidth;
   homeEl.classList.add('scored');
@@ -1444,9 +1470,20 @@ function spawnSparks(x,y,color='#ffd03c',count=10){
 }
 
 // === BASE RUNNING ===
+// 外野球/滾地球打到後，roll 安打上壘 or 接殺出局
+function rollContactResult(outcomeId){
+  const safeRate = {
+    fly_left: 0.40, fly_center: 0.30, fly_right: 0.40,
+    grounder: 0.25,
+  };
+  return Math.random() < (safeRate[outcomeId] ?? 0);
+}
+
 function getHitAdvance(outcomeId){
-  if(outcomeId==='hit_left')  return Math.random()<0.70 ? 1 : 2;
-  if(outcomeId==='hit_right') return Math.random()<0.65 ? 1 : 2;
+  if(outcomeId==='fly_left')   return Math.random()<0.70 ? 1 : 2;
+  if(outcomeId==='fly_right')  return Math.random()<0.70 ? 1 : 2;
+  if(outcomeId==='fly_center') return Math.random()<0.60 ? 1 : 2;
+  if(outcomeId==='grounder')   return 1;   // 內野安打只上一壘
   return 1;
 }
 
@@ -1855,7 +1892,6 @@ async function pitch(){
   showResult(outcome,payAmt);
   STATE.betHistory.push(STATE.predBet);
   STATE.totalBalls++;
-  if(['hit_left','hit_right','hr_center','hr_left','hr_right'].includes(outcome.id)) STATE.totalHits++;
 
   if(outcome.id==='strike'||outcome.id==='swing_miss'){
     STATE.strikes++;
@@ -1872,11 +1908,12 @@ async function pitch(){
   } else if(outcome.id==='foul_left'||outcome.id==='foul_right'){
     if(STATE.strikes<2) STATE.strikes++;
   } else {
+    // 打到球：外野球 / 滾地球 / 全壘打
     STATE.balls=0; STATE.strikes=0;
-    if(outcome.id==='fly_out'||outcome.id==='ground_out'){
-      STATE.outs++;
-      nextBatter();
-    } else if(['hr_center','hr_left','hr_right'].includes(outcome.id)){
+
+    if(['hr_center','hr_left','hr_right'].includes(outcome.id)){
+      // 全壘打：直接得分
+      STATE.totalHits++;
       STATE.hasHR=true; settleBaseRunners(); showHRRun();
       playBatterRun();
       setTimeout(nextBatter, 850);
@@ -1891,18 +1928,33 @@ async function pitch(){
         field.appendChild(shock2);
         setTimeout(()=>shock2.remove(),1100);
       }
-    } else if(outcome.id==='hit_left'||outcome.id==='hit_right'){
-      advanceRunners(getHitAdvance(outcome.id));
-      playBatterRun(); nextBatter();
+    } else {
+      // 外野球 / 滾地球：賠付已在前段給付，這裡只 roll 上壘 or 接殺
+      const safe = rollContactResult(outcome.id);
+      if(safe){
+        // 安打上壘
+        STATE.totalHits++;
+        advanceRunners(getHitAdvance(outcome.id));
+        showResult({id:outcome.id, label:'安打！', payout:outcome.payout}, payAmt);
+        playBatterRun(); nextBatter();
+      } else {
+        // 接殺出局（賠付已給，不影響）
+        STATE.outs++;
+        const outLabel = (outcome.id==='grounder') ? '滾地接殺！' : '高飛接殺！';
+        showResult({id:'caught', label:outLabel, payout:0}, payAmt);
+        nextBatter();
+      }
     }
   }
 
   document.getElementById('inningEarnedDisplay').textContent=pitchEarned>0?'+'+pitchEarned.toLocaleString():'—';
   updateCountBar(); updateBases();
+  updatePredHitFeedback();
   await sleep(1800);
 
   if(STATE.outs>=3){
     resetField(); STATE.pitching=false;
+    await revealPredResults();   // 結算前：標的開獎演出
     await settleInning(); return;
   }
   resetField(); updateBalance(); STATE.pitching=false; setUiLocked(false);
@@ -2080,26 +2132,105 @@ function confirmPrediction(){
   startBatting();
 }
 
-function renderPredSummary(){
-  const el=document.getElementById('predSummary');
-  el.innerHTML='';
-  const groups=[
+function getPredGroups(){
+  return [
     ['winloss',STATE.predWinLoss],['bigsmall',STATE.predBigSmall],
     ['margin',STATE.predMargin],['hits',STATE.predHits],
     ['oddeven',STATE.predOddEven],['exact',STATE.predExactScore],
   ];
-  for(const [key,arr] of groups){
+}
+
+function predTagLabel(key,val){
+  return key==='exact'
+    ?(val==='9+'?'9+分':val+'分')
+    :((PRED_VAL_LABELS[key]&&PRED_VAL_LABELS[key][val])||val);
+}
+
+let _predHitState={};
+let _predCollapseTimer=null;
+
+function renderPredSummary(){
+  const el=document.getElementById('predSummary');
+  const list=document.getElementById('predTagList');
+  list.innerHTML='';
+  let count=0;
+  _predHitState={};
+  for(const [key,arr] of getPredGroups()){
     for(const val of arr){
+      count++;
       const t=document.createElement('span');
       t.className='pred-tag pred-active';
-      const valLabel=key==='exact'
-        ?(val==='9+'?'9+分':val+'分')
-        :((PRED_VAL_LABELS[key]&&PRED_VAL_LABELS[key][val])||val);
-      t.textContent=valLabel;
-      el.appendChild(t);
+      t.dataset.pred=key+'|'+val;
+      t.textContent=predTagLabel(key,val);
+      list.appendChild(t);
+      // 初始化命中狀態（局初不觸發飛出提示）
+      _predHitState[key+'|'+val]=isPredHit(key,val);
     }
   }
-  el.classList.toggle('hidden', el.children.length===0);
+  document.getElementById('predBadgeCount').textContent=count;
+  el.classList.toggle('hidden', count===0);
+  refreshPredTagStyles();
+  // 打擊開始先展開一次讓玩家確認，隨後自動收合
+  if(count>0) togglePredList(true);
+}
+
+function togglePredList(force){
+  const list=document.getElementById('predTagList');
+  const show=force!==undefined?force:list.classList.contains('hidden');
+  list.classList.toggle('hidden',!show);
+  clearTimeout(_predCollapseTimer);
+  if(show) _predCollapseTimer=setTimeout(()=>list.classList.add('hidden'),2500);
+}
+
+function refreshPredTagStyles(){
+  let any=false;
+  document.querySelectorAll('#predTagList .pred-tag').forEach(t=>{
+    const hit=!!_predHitState[t.dataset.pred];
+    t.classList.toggle('pred-hit',hit);
+    if(hit) any=true;
+  });
+  document.getElementById('predBadge').classList.toggle('has-hit',any);
+}
+
+// 三出局後、結算 dialog 前：展開標的列表開獎，命中者閃爍、未命中變暗
+async function revealPredResults(){
+  if(countPredTargets()===0) return;
+  const summary=document.getElementById('predSummary');
+  const list=document.getElementById('predTagList');
+  clearTimeout(_predCollapseTimer);
+  list.classList.remove('hidden');
+  summary.classList.add('reveal');
+  let anyHit=false;
+  document.querySelectorAll('#predTagList .pred-tag').forEach(t=>{
+    const [key,val]=t.dataset.pred.split('|');
+    const hit=isPredHit(key,val);
+    t.classList.toggle('pred-hit',hit);
+    t.classList.toggle('pred-miss',!hit);
+    if(hit){t.classList.add('pred-flash'); anyHit=true;}
+  });
+  document.getElementById('predBadge').classList.toggle('has-hit',anyHit);
+  if(anyHit) playWin(2);
+  await sleep(anyHit?6500:3600);   // sleep 受速度倍率影響：1x 約 2.2s / 1.2s
+  summary.classList.remove('reveal');
+  document.querySelectorAll('#predTagList .pred-tag').forEach(t=>t.classList.remove('pred-flash','pred-miss'));
+}
+
+// 每球結算後重新評估各預測標的；徽章變金 + 脈衝（不再飛出提示字）
+function updatePredHitFeedback(){
+  if(document.getElementById('predSummary').classList.contains('hidden')) return;
+  let anyHit=false;
+  for(const [key,arr] of getPredGroups()){
+    for(const val of arr){
+      const k=key+'|'+val, hit=isPredHit(key,val);
+      _predHitState[k]=hit;
+      if(hit) anyHit=true;
+    }
+  }
+  refreshPredTagStyles();
+  if(anyHit){
+    const badge=document.getElementById('predBadge');
+    badge.classList.remove('pulse'); void badge.offsetWidth; badge.classList.add('pulse');
+  }
 }
 
 // === SPEED ===
@@ -2212,6 +2343,8 @@ document.querySelectorAll('.predict-btn[data-group]').forEach(btn=>{
     updatePredCost(); updateConfirmBtn();
   });
 });
+
+document.getElementById('predBadge').addEventListener('click',()=>{ playClick(); togglePredList(); });
 
 document.getElementById('predAllBtn').addEventListener('click', selectAllPreds);
 document.getElementById('predClearBtn').addEventListener('click', ()=>{ clearAllPreds(); clearAutoCountdown(); });
