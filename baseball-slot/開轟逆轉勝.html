@@ -215,6 +215,13 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
 .pred-bet-hint span{color:var(--gold);font-weight:700}
 .pred-bet-change{background:transparent;border:1px solid #2a3a4a;border-radius:4px;padding:2px 8px;font-size:11px;color:var(--dim);cursor:pointer;margin-left:6px}
 .pred-bet-change:hover{color:#fff}
+.pred-bet-change.active{color:var(--gold-b);border-color:rgba(212,160,74,.6);background:rgba(212,160,74,.12)}
+.pred-bet-inline{max-height:0;overflow:hidden;opacity:0;margin:0;transition:max-height .28s ease,opacity .2s ease,margin .28s ease}
+.pred-bet-inline.open{max-height:200px;opacity:1;margin:2px 0 6px}
+.pred-bet-inline-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:5px;background:rgba(255,255,255,.02);border:1px solid rgba(212,160,74,.18);border-radius:8px}
+.pred-bet-opt{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:7px;color:rgba(255,255,255,.55);font-family:var(--fb);font-size:12px;font-weight:600;padding:7px 3px;cursor:pointer;transition:all .14s}
+.pred-bet-opt:hover{background:rgba(212,160,74,.12);border-color:rgba(212,160,74,.45);color:rgba(212,160,74,.95)}
+.pred-bet-opt.selected{background:linear-gradient(155deg,rgba(212,160,74,.3),rgba(212,160,74,.12));border-color:rgba(212,160,74,.7);color:var(--gold-b);font-weight:700}
 
 /* DELTA */
 .delta{position:absolute;font-family:var(--fd);font-size:28px;font-weight:700;z-index:25;pointer-events:none;animation:dFloat 1.5s ease-out forwards}
@@ -571,7 +578,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:var(--fb);backgroun
       </div>
 
       <div class="predict-title">預測本局賽果</div>
-      <div class="pred-bet-hint">預測注額：<span id="predBetHint">500</span><button onclick="openBetDialog()" class="pred-bet-change">更換</button></div>
+      <div class="pred-bet-hint">預測注額：<span id="predBetHint">500</span><button onclick="togglePredBetInline()" class="pred-bet-change" id="predBetChangeBtn">更換</button></div>
+      <div class="pred-bet-inline" id="predBetInline"><div class="pred-bet-inline-grid" id="predBetInlineGrid"></div></div>
       <div class="pred-cost-hint" id="predCostHint">尚未選擇標的</div>
       <div class="pred-countdown hidden" id="predCountdown"></div>
 
@@ -1765,8 +1773,28 @@ async function settleInning(){
 
   document.getElementById('settleOverlay').classList.remove('hidden');
 
+  const nextBtn=document.getElementById('settleNextBtn');
   await new Promise(resolve=>{
-    document.getElementById('settleNextBtn').onclick=()=>resolve();
+    let autoT=null, cdT=null;
+    const done=()=>{
+      if(autoT){ clearTimeout(autoT); autoT=null; }
+      if(cdT){ clearInterval(cdT); cdT=null; }
+      nextBtn.onclick=null;
+      nextBtn.textContent='繼續 ▶';
+      resolve();
+    };
+    nextBtn.onclick=done;
+    if(STATE.auto){
+      let remaining=3;
+      nextBtn.textContent=`繼續 ▶ (${remaining})`;
+      cdT=setInterval(()=>{
+        remaining--;
+        if(remaining>0) nextBtn.textContent=`繼續 ▶ (${remaining})`;
+      },1000);
+      autoT=setTimeout(done,3000);
+    } else {
+      nextBtn.textContent='繼續 ▶';
+    }
   });
   document.getElementById('settleOverlay').classList.add('hidden');
 
@@ -2024,6 +2052,44 @@ function selectBetOption(v){
 }
 function closeBetDialog(){ document.getElementById('betDialog').classList.add('hidden'); }
 function closeBetDialogOutside(e){ if(e.target===document.getElementById('betDialog')) closeBetDialog(); }
+
+// === 預測面板內嵌注額選擇器（accordion，取代彈窗）===
+function initPredBetInlineGrid(){
+  const grid=document.getElementById('predBetInlineGrid');
+  if(!grid) return;
+  grid.innerHTML='';
+  BET_OPTIONS.forEach(v=>{
+    const btn=document.createElement('button');
+    btn.className='pred-bet-opt';
+    btn.textContent=v>=10000?(v/10000)+'萬':v.toLocaleString();
+    btn.dataset.val=v;
+    btn.onclick=()=>selectPredBetInline(v);
+    grid.appendChild(btn);
+  });
+}
+function togglePredBetInline(){
+  const box=document.getElementById('predBetInline');
+  const btn=document.getElementById('predBetChangeBtn');
+  if(!box) return;
+  const open=box.classList.toggle('open');
+  if(btn) btn.classList.toggle('active',open);
+  if(open){
+    document.querySelectorAll('#predBetInlineGrid .pred-bet-opt').forEach(b=>
+      b.classList.toggle('selected',parseInt(b.dataset.val)===STATE.predBet));
+  }
+  playClick();
+}
+function selectPredBetInline(v){
+  STATE.predBet=v;
+  updatePredBetDisplay();
+  updateBetPanel();
+  updatePredCost(); updateConfirmBtn();
+  const box=document.getElementById('predBetInline');
+  const btn=document.getElementById('predBetChangeBtn');
+  if(box) box.classList.remove('open');
+  if(btn) btn.classList.remove('active');
+  playClick();
+}
 
 function updateBetPanel(){
   const v=STATE.predBet;
@@ -2416,6 +2482,7 @@ document.getElementById('bigSmallLineLabel').textContent=BIG_SMALL_LINE;
 
 // === INIT ===
 initBetDialogGrid();
+initPredBetInlineGrid();
 updateBalance(); updateBetPanel(); updatePredBetDisplay(); startInning();
 
 // Responsive scaling
